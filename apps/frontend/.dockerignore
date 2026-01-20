@@ -1,0 +1,115 @@
+# ========================================
+# Dependencies (installed during build)
+# ========================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ========================================
+# Environment Variables
+# ========================================
+.env
+.env.*
+!.env.example
+.vite
+
+# ========================================
+# Git / VCS
+# ========================================
+.git/
+.gitignore
+.gitattributes
+
+# ========================================
+# Build Output (recreated in container)
+# ========================================
+dist/
+dist-ssr/
+build/
+.cache/
+.parcel-cache/
+
+# ========================================
+# Docker Files
+# ========================================
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# ========================================
+# Logs
+# ========================================
+logs/
+*.log
+
+# ========================================
+# IDE / Editor Files
+# ========================================
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+*.swp
+*.swo
+*.sw?
+*~
+
+# ========================================
+# OS Files
+# ========================================
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# ========================================
+# Testing & Coverage
+# ========================================
+coverage/
+.nyc_output/
+*.lcov
+test/
+tests/
+__tests__/
+*.test.js
+*.test.jsx
+*.spec.js
+*.spec.jsx
+
+# ========================================
+# Documentation
+# ========================================
+README.md
+CHANGELOG.md
+LICENSE
+docs/
+
+# ========================================
+# CI/CD
+# ========================================
+.github/
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+
+# ========================================
+# Temporary Files
+# ========================================
+tmp/
+temp/
+*.tmp
+*.temp
+
+# ========================================
+# Vite Specific
+# ========================================
+vite.config.*.timestamp-*
+
+# ========================================
+# ESLint Cache
+# ========================================
+.eslintcache

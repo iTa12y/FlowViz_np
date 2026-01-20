@@ -1,0 +1,68 @@
+{
+  "name": "IncidentFlow",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name of the incident flow"
+    },
+    "description": {
+      "type": "string",
+      "description": "Original incident description text"
+    },
+    "flow_type": {
+      "type": "string",
+      "enum": [
+        "network_map",
+        "timeline",
+        "mitre_attack"
+      ],
+      "description": "Type of flow diagram"
+    },
+    "diagram_data": {
+      "type": "string",
+      "description": "Mermaid diagram code or JSON structure"
+    },
+    "nodes": {
+      "type": "array",
+      "description": "Array of nodes in the diagram",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "details": {
+            "type": "string"
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "generated",
+        "reviewed",
+        "archived"
+      ],
+      "default": "draft"
+    }
+  },
+  "required": [
+    "name",
+    "flow_type"
+  ]
+}
