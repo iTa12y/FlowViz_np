@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { IncidentFlowStorage } from '@/Components/services/localStorage';
+import { IncidentFlowStorage } from '@/Components/services/apiStorage';
 import { analyzeIncident, isOpenAIConfigured } from '@/Components/services/openai-callback';
 import { 
   Network, 
@@ -23,7 +23,6 @@ import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/Components/ui/tabs';
 import { cn } from '@/lib/utils';
-import BackendIntegrationGuide from '@/Components/confluence/BackendIntegrationGuide';
 import OpenAISetup from '@/Components/setup/OpenAISetup';
 
 export default function CreateFlow() {
@@ -90,15 +89,12 @@ export default function CreateFlow() {
   // Fetch Confluence page content via API
   const fetchConfluencePage = async (pageName) => {
     try {
-      const sessionId = localStorage.getItem('session_id');
       const space = 'MFS'; // Your Confluence space key
       
       const response = await fetch(
-        `http://localhost:5001/api/confluence/page?space=${encodeURIComponent(space)}&title=${encodeURIComponent(pageName)}`,
+        `http://localhost:3001/api/confluence/page?space=${encodeURIComponent(space)}&title=${encodeURIComponent(pageName)}`,
         {
-          headers: {
-            'X-Session-ID': sessionId
-          }
+          credentials: 'include' // Send cookies with request
         }
       );
       
@@ -162,7 +158,7 @@ export default function CreateFlow() {
       });
 
       // Create the flow record
-      const flow = IncidentFlowStorage.create({
+      const flow = await IncidentFlowStorage.create({
         name: flowName,
         description: finalIncidentText,
         flow_type: selectedType,
@@ -324,31 +320,6 @@ Data exfiltration was detected at 14:47 UTC when 2.3GB of sensitive financial da
                   <p className="text-xs text-slate-400">
                     Enter the exact name of the Confluence page containing the incident report
                   </p>
-                </div>
-
-                {/* Integration Guide */}
-                <BackendIntegrationGuide />
-
-                {/* Example Page Names */}
-                <div className="p-4 rounded-xl bg-[#1a2038] border border-white/10">
-                  <h5 className="text-xs font-medium text-slate-400 mb-2 uppercase tracking-wide">
-                    Example Page Names
-                  </h5>
-                  <div className="space-y-2">
-                    {[
-                      'Security Incident - Phishing Campaign 2024-Q1',
-                      'INC-2024-001: Ransomware Attack Post-Mortem',
-                      'SOC Alert: Suspicious PowerShell Activity'
-                    ].map((example) => (
-                      <button
-                        key={example}
-                        onClick={() => setConfluencePageName(example)}
-                        className="w-full text-left px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
-                      >
-                        <span className="text-sm text-slate-300">{example}</span>
-                      </button>
-                    ))}
-                  </div>
                 </div>
               </TabsContent>
             </Tabs>

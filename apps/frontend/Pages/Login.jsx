@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Input } from '@/Components/ui/input';
 import { Button } from '@/Components/ui/button';
 import { Label } from '@/Components/ui/label';
-import { AlertCircle, Loader2, Shield } from 'lucide-react';
+import { AlertCircle, Loader2, Shield, Eye, EyeOff, Lock, User, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function Login() {
@@ -14,6 +14,7 @@ export default function Login() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [showToken, setShowToken] = useState(false);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -31,7 +32,7 @@ export default function Login() {
       return;
     }
 
-    const apiUrl = import.meta.env.VITE_AUTH_API_URL || 'http://localhost:5001';
+    const apiUrl = import.meta.env.VITE_AUTH_API_URL || 'http://localhost:3001';
 
     try {
       const response = await fetch(`${apiUrl}/api/auth/login`, {
@@ -52,8 +53,8 @@ export default function Login() {
         // Clear credentials from memory immediately
         setFormData({ username: '', apiToken: '' });
         
-        // Store only session ID (never store API token)
-        localStorage.setItem('session_id', data.session_id);
+        // Session cookie is set by the server (HTTP-only)
+        // Only store username for UI display
         localStorage.setItem('username', data.username);
         
         navigate('/');
@@ -69,12 +70,13 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0e1a] overflow-hidden flex items-center justify-center">
-      {/* Animated background */}
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 overflow-hidden flex items-center justify-center">
+      {/* Enhanced animated background */}
       <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(0,212,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(0,212,255,0.03)_1px,transparent_1px)] bg-[size:60px_60px]" />
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-[120px]" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/5 rounded-full blur-[120px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(6,182,212,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(6,182,212,0.02)_1px,transparent_1px)] bg-[size:80px_80px]" />
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-[120px] animate-pulse" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/5 rounded-full blur-[120px] animate-pulse" />
+        <div className="absolute top-3/4 left-1/2 w-64 h-64 bg-emerald-500/5 rounded-full blur-[80px] animate-pulse" />
       </div>
 
       <div className="relative w-full max-w-md px-6">
@@ -84,90 +86,133 @@ export default function Login() {
           transition={{ duration: 0.6 }}
           className="space-y-8"
         >
-          {/* Header */}
-          <div className="text-center space-y-4">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-400/20 to-purple-400/20 border border-cyan-400/20 mb-4">
-              <Shield className="w-8 h-8 text-cyan-400" />
+          {/* Enhanced Header */}
+          <div className="text-center space-y-6">
+            <div className="relative">
+              <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br from-cyan-400 via-cyan-500 to-blue-600 shadow-lg shadow-cyan-500/25">
+                <Shield className="w-10 h-10 text-white drop-shadow-sm" />
+              </div>
+              <div className="absolute -inset-1 rounded-3xl bg-gradient-to-br from-cyan-400 to-blue-600 opacity-20 blur-lg" />
             </div>
-            <h1 className="text-3xl font-bold text-white">
-              FlowViz Login
-            </h1>
-            <p className="text-slate-400">
-              Authenticate with your Confluence credentials
-            </p>
+            <div>
+              <h1 className="text-4xl font-bold text-white mb-2">
+                Welcome to FlowViz
+              </h1>
+              <p className="text-lg text-slate-400">
+                Secure Authentication Portal
+              </p>
+              <p className="text-sm text-slate-500 mt-2">
+                Connect with your Confluence credentials
+              </p>
+            </div>
           </div>
 
-          {/* Login Form */}
-          <form onSubmit={handleSubmit} className="space-y-6 rounded-xl bg-[#12182b] border border-white/10 p-8">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="username" className="text-white">
-                  Confluence Username (Email)
-                </Label>
-                <Input
-                  id="username"
-                  type="email"
-                  placeholder="user@example.com"
-                  value={formData.username}
-                  onChange={(e) => handleInputChange('username', e.target.value)}
-                  required
-                  className="bg-[#0a0e1a] border-white/10 text-white placeholder:text-slate-500 focus:border-cyan-400/50"
-                />
+          {/* Enhanced Login Form */}
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="relative bg-slate-900/50 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl">
+              <div className="space-y-6">
+                {/* Username Field */}
+                <div className="space-y-3">
+                  <Label htmlFor="username" className="text-slate-200 text-sm font-medium flex items-center gap-2">
+                    <User className="w-4 h-4 text-cyan-400" />
+                    Confluence Username
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="username"
+                      type="email"
+                      placeholder="your.email@company.com"
+                      value={formData.username}
+                      onChange={(e) => handleInputChange('username', e.target.value)}
+                      required
+                      className="h-12 bg-slate-800/50 border-white/10 text-white placeholder:text-slate-500 focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/20 rounded-xl pl-4 pr-4 transition-all duration-200"
+                    />
+                  </div>
+                </div>
+
+                {/* API Token Field */}
+                <div className="space-y-3">
+                  <Label htmlFor="apiToken" className="text-slate-200 text-sm font-medium flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-purple-400" />
+                    API Token
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="apiToken"
+                      type={showToken ? "text" : "password"}
+                      placeholder="Your Atlassian API token"
+                      value={formData.apiToken}
+                      onChange={(e) => handleInputChange('apiToken', e.target.value)}
+                      required
+                      className="h-12 bg-slate-800/50 border-white/10 text-white placeholder:text-slate-500 focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/20 rounded-xl pl-4 pr-12 transition-all duration-200"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowToken(!showToken)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 w-6 h-6 rounded-lg hover:bg-white/10 transition-colors flex items-center justify-center"
+                    >
+                      {showToken ? 
+                        <EyeOff className="w-4 h-4 text-slate-400" /> : 
+                        <Eye className="w-4 h-4 text-slate-400" />
+                      }
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    <a 
+                      href="https://id.atlassian.com/manage-profile/security/api-tokens" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-cyan-400 hover:text-cyan-300 underline"
+                    >
+                      Create an API token here
+                    </a>
+                  </p>
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="apiToken" className="text-white">
-                  Confluence API Token
-                </Label>
-                <Input
-                  id="apiToken"
-                  type="password"
-                  placeholder="Your Atlassian API token"
-                  value={formData.apiToken}
-                  onChange={(e) => handleInputChange('apiToken', e.target.value)}
-                  required
-                  className="bg-[#0a0e1a] border-white/10 text-white placeholder:text-slate-500 focus:border-cyan-400/50"
-                />
-              </div>
+              {/* Error Message */}
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-6 flex items-center gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/20"
+                >
+                  <AlertCircle className="w-5 h-5 flex-shrink-0 text-red-400" />
+                  <span className="text-sm text-red-400">{error}</span>
+                </motion.div>
+              )}
+
+              {/* Submit Button */}
+              <Button
+                type="submit"
+                disabled={loading || !formData.username || !formData.apiToken}
+                className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-cyan-500 to-cyan-400 hover:from-cyan-600 hover:to-cyan-500 text-slate-950 rounded-xl mt-8 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-3 animate-spin" />
+                    Authenticating...
+                  </>
+                ) : (
+                  <>
+                    Secure Login
+                    <ArrowRight className="w-5 h-5 ml-3" />
+                  </>
+                )}
+              </Button>
             </div>
 
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-2 p-4 rounded-lg bg-red-400/10 border border-red-400/20 text-red-400"
-              >
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                <span className="text-sm">{error}</span>
-              </motion.div>
-            )}
-
-            <Button
-              type="submit"
-              disabled={loading}
-              className="w-full h-12 text-base font-semibold bg-gradient-to-r from-cyan-400 to-purple-400 hover:from-cyan-500 hover:to-purple-500 text-[#0a0e1a]"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Verifying...
-                </>
-              ) : (
-                <>
-                  <Shield className="w-5 h-5 mr-2" />
-                  Login
-                </>
-              )}
-            </Button>
-
-            <div className="space-y-2">
-              <p className="text-xs text-center text-slate-500">
-                Your credentials are encrypted and hashed server-side. Session expires in 1 hour.
-              </p>
+            {/* Security Notice */}
+            <div className="text-center space-y-2">
+              <div className="flex items-center justify-center gap-2 text-emerald-400 text-sm">
+                <Shield className="w-4 h-4" />
+                <span>End-to-end encrypted • Session expires in 1 hour</span>
+              </div>
               {window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && (
-                <p className="text-xs text-center text-amber-400">
-                  ⚠️ WARNING: Use HTTPS in production to secure credentials
-                </p>
+                <div className="flex items-center justify-center gap-2 text-amber-400 text-sm">
+                  <AlertCircle className="w-4 h-4" />
+                  <span>WARNING: Use HTTPS in production</span>
+                </div>
               )}
             </div>
           </form>

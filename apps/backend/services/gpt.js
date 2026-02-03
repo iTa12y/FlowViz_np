@@ -1,21 +1,67 @@
 import { OpenAI } from "openai";
+import https from "https";
 import env from "./env.js";
 
-export const SYSTEM_PROMPT = `You are a senior cybersecurity analyst and incident responder.
+export const SYSTEM_PROMPT = `You are a senior cybersecurity analyst and incident responder with specialized expertise in attack flow analysis.
 
-Your task is to analyze incident descriptions in any language, including Hebrew (עברית), and produce structured attack flow diagrams and summaries.
+Your task is to analyze incident descriptions in any language, including Hebrew (עברית), and produce structured attack flow diagrams while clearly distinguishing between confirmed attack actions, investigative findings, and speculative theories.
+
+CRITICAL CLASSIFICATION FRAMEWORK:
+1. ATTACK FLOW ELEMENTS (confirmed attack actions):
+   - Direct evidence of attacker activity
+   - Confirmed system compromises
+   - Verified lateral movement
+   - Proven data exfiltration or impact
+   - Technical artifacts with high confidence
+
+2. INVESTIGATION STEPS (legitimate analysis actions):
+   - Analyst research activities
+   - Log analysis and review
+   - Tool execution for investigation
+   - Hypothesis testing actions
+   - Evidence collection processes
+
+3. SPECULATIONS & ASSUMPTIONS (uncertain elements):
+   - Potential attack vectors not yet confirmed
+   - Theoretical next steps in attack progression
+   - Missing information that needs investigation
+   - Possible but unverified attack methods
+   - Gaps in the attack timeline
+
+SPECIAL HANDLING FOR MISSING INFORMATION:
+When you encounter gaps in the attack flow or unclear progression:
+- DO NOT fill gaps with assumptions
+- DO NOT create speculative attack steps
+- INSTEAD: Create "question_mark" components with:
+  - Type: "question_mark"
+  - Description: List all possible scenarios for this gap
+  - Investigation_suggestions: What needs to be checked/analyzed
+  - Confidence_level: "unknown" or "requires_investigation"
 
 Language & Terminology Handling:
-- If the input text is in Hebrew, read and understand it natively (right-to-left).
-- Preserve the Hebrew narrative, but enhance it by embedding professional cybersecurity terminology in English (לעז) where appropriate.
-- When a Hebrew term clearly maps to a known cybersecurity concept, append or replace it with the accepted English term.
+- If the input text is in Hebrew, read and understand it natively (right-to-left)
+- Preserve the Hebrew narrative, but enhance it by embedding professional cybersecurity terminology in English (לעז) where appropriate
+- When a Hebrew term clearly maps to a known cybersecurity concept, append or replace it with the accepted English term
 
 Example:
 - Before: התוקף הקים התמדה באמצעות משימה מתוזמנת
-- After:  התוקף יצר Persistence באמצעות Scheduled Task
+- After: התוקף יצר Persistence באמצעות Scheduled Task
 
-Technical Extraction:
-From the incident description, extract and normalize all relevant technical indicators, including but not limited to:
+OUTPUT REQUIREMENTS:
+For Network Maps & Timeline Analysis:
+- ONLY include confirmed attack flow elements
+- Mark investigative steps with type: "investigation_step"
+- Replace missing/uncertain elements with question_mark components
+- Provide clear confidence levels for each element
+
+For Speculation Filtering (from Confluence):
+- Identify speculation markers: "maybe", "possibly", "could be", "might have", "we think", "probably"
+- Hebrew speculation markers: "יכול להיות", "אולי", "ייתכן", "נראה כי", "סביר להניח"
+- Separate these into question_mark components
+- Only include verified attack flow elements in main diagrams
+
+Technical Extraction Guidelines:
+From incident descriptions, extract and normalize:
 - IP addresses, domains, URLs, hostnames
 - File names, file paths, hashes (MD5, SHA1, SHA256)
 - Registry keys, services, scheduled tasks
@@ -23,86 +69,118 @@ From the incident description, extract and normalize all relevant technical indi
 - User accounts, credentials, processes
 - Network protocols, ports, and communication patterns
 
-Attack Mapping:
-- Identify and map attacker actions to MITRE ATT&CK tactics and techniques.
-- Use standard English MITRE terminology (e.g., Initial Access, Persistence, Lateral Movement, Command and Control), even when the description is in Hebrew.
-- Reference technique IDs (e.g., T1053.005) whenever possible.
-
-Output Structure:
-- Present the incident as a clear, step-by-step attack flow.
-- Each step must include:
-  - A concise Hebrew explanation
-  - Embedded English cybersecurity terminology (לעז)
-  - MITRE ATT&CK tactic and technique (if applicable)
-
-Example Output Step:
-1. Initial Access – התוקף השיג גישה ראשונית (Initial Access)
-   Technique: Phishing (T1566)
-
-Diagram-Oriented Formatting:
-- Structure the output so it can be easily converted into:
-  - Attack Flow diagrams
-  - Incident timelines
-  - SOC / DFIR reports
-  - Visualization formats such as Mermaid or ATT&CK Navigator
+Attack Mapping Standards:
+- Map confirmed actions to MITRE ATT&CK tactics and techniques
+- Use standard English MITRE terminology
+- Reference technique IDs (e.g., T1053.005) when applicable
+- Mark uncertain mappings as question_mark components
 
 General Guidelines:
-- Be precise, technical, and concise.
-- Do not oversimplify attacker behavior.
-- Assume the audience is technical (SOC analysts, DFIR investigators, threat hunters).`;
+- Prioritize accuracy over completeness
+- Clearly distinguish fact from theory
+- Provide actionable investigation guidance
+- Assume technical SOC/DFIR audience
+- Never fabricate attack steps to complete flows`;
 
 export const FLOW_PROMPTS = {
-  network_map: (
-    description
-  ) => `Analyze this cyber security incident and create a network attack flow diagram.
+  network_map: (description) => `Analyze this cyber security incident and create a network attack flow diagram.
+
+CLASSIFICATION REQUIREMENTS:
+- Only include CONFIRMED attack elements in the main flow
+- Mark investigation activities separately
+- Use question_mark components for gaps or uncertainties
+- Filter out speculation and assumptions
 
 Incident Description:
 ${description}
 
-Generate a network diagram showing:
-- Attacker entry point and progression
-- Compromised systems (endpoints, servers, domain controllers)
-- Attack paths and lateral movement
-- Target systems
+Generate a network diagram showing ONLY confirmed elements:
+- Verified attacker entry points and progression
+- Confirmed compromised systems (endpoints, servers, domain controllers)
+- Proven attack paths and lateral movement
+- Verified target systems
+
+For missing or uncertain elements, create question_mark components that describe:
+- What information is missing
+- Possible attack vectors to investigate
+- Questions that need answers
+- Technical checks to perform
 
 Return JSON with:
-- nodes: array of {id, type, label, details}
-  - type options: endpoint, workstation, server, domain_controller, database, attacker, target, firewall, external, network, storage
-- edges: array of {from, to, label}
+- nodes: array of {id, type, label, details, confidence_level}
+  - type options: endpoint, workstation, server, domain_controller, database, attacker, target, firewall, external, network, storage, question_mark, investigation_step
+  - confidence_level: "confirmed", "likely", "uncertain", "requires_investigation"
+- edges: array of {from, to, label, confidence_level}
 
-If the incident is in Hebrew, extract technical information accurately and create appropriate network topology`,
+If the incident is in Hebrew, extract technical information accurately while filtering speculation.`,
 
-  timeline: (description) => {
-    return `Analyze this cyber security incident and create a chronological timeline of events.
+  timeline: (description) => `Analyze this cyber security incident and create a chronological timeline of CONFIRMED events only.
+
+FILTERING REQUIREMENTS:
+- Include only verified attack actions with timestamps
+- Separate investigation activities from attack flow
+- Use question_mark components for timeline gaps
+- Do not assume or fill missing time periods
 
 Incident Description:
 ${description}
 
-Generate a timeline showing the sequence of attack events from initial access to final impact.
+Generate a timeline showing ONLY confirmed sequence of attack events:
+- Verified initial access with timestamps
+- Confirmed execution and persistence events
+- Proven lateral movement with timing
+- Verified data collection/exfiltration
+- Confirmed impact events
+
+For timeline gaps or uncertain events, create question_mark entries with:
+- Possible events that could have occurred
+- Time windows that need investigation
+- What evidence to look for
+- Technical artifacts to examine
 
 Return JSON with:
-- events: array of {id, timestamp, title, description, type}
-  - type options: initial_access, execution, persistence, privilege_escalation, lateral_movement, collection, exfiltration, impact
+- events: array of {id, timestamp, title, description, type, confidence_level}
+  - type options: initial_access, execution, persistence, privilege_escalation, lateral_movement, collection, exfiltration, impact, question_mark, investigation_step
+  - confidence_level: "confirmed", "likely", "uncertain", "requires_investigation"
 
-Extract timestamps from the text or infer logical sequence. For Hebrew text, accurately parse dates and times in Hebrew format.`;
-  },
-  mitre_attack: (description) => {
-    return `Analyze this cyber security incident and map it to the MITRE ATT&CK framework.
+Extract exact timestamps from text or mark as "requires_investigation" if timing is unclear.`,
+
+  mitre_attack: (description) => `Analyze this cyber security incident and map ONLY CONFIRMED behaviors to the MITRE ATT&CK framework.
+
+STRICT MAPPING REQUIREMENTS:
+- Only include tactics/techniques with clear evidence
+- Mark uncertain mappings as question_mark components
+- Separate investigation activities from attack techniques
+- Provide confidence levels for all mappings
 
 Incident Description:
 ${description}
 
-Map observed behaviors to MITRE ATT&CK tactics and techniques. Only include tactics/techniques that are actually mentioned or clearly implied in the incident.
+Map ONLY observed and verified behaviors to MITRE ATT&CK:
+- Confirmed tactics and techniques with evidence
+- Clear procedure descriptions
+- High-confidence technique identification
+
+For uncertain or missing technique mappings, create question_mark entries with:
+- Possible techniques that might apply
+- Additional evidence needed
+- Investigation questions for confirmation
+- Alternative technique possibilities
 
 Return JSON with:
-- tactics: array of {id, name, techniques}
-  - techniques: array of {id, name, description, procedure}
+- tactics: array of {id, name, techniques, confidence_level}
+  - techniques: array of {id, name, description, procedure, confidence_level, evidence_quality}
+  - confidence_level: "confirmed", "likely", "uncertain", "requires_investigation"
+  - evidence_quality: "strong", "moderate", "weak", "speculation"
 
-Use standard MITRE ATT&CK IDs (e.g., TA0001, T1566). For Hebrew incident descriptions, accurately identify the TTPs described.`;
-  },
+Only use standard MITRE ATT&CK IDs (e.g., TA0001, T1566) for confirmed techniques.
+
+Be precise, technical, and concise.
+Do not oversimplify attacker behavior.
+Assume the audience is technical (SOC analysts, DFIR investigators, threat hunters).`,
 };
 
-export const FLOW_RESPONSES = {
+export const RESPONSE_FORMATS = {
   network_map: {
     type: "json_schema",
     json_schema: {
@@ -117,11 +195,20 @@ export const FLOW_RESPONSES = {
               type: "object",
               properties: {
                 id: { type: "string" },
-                type: { type: "string" },
+                type: { 
+                  type: "string",
+                  enum: ["endpoint", "workstation", "server", "domain_controller", "database", "attacker", "target", "firewall", "external", "network", "storage", "question_mark", "investigation_step"]
+                },
                 label: { type: "string" },
                 details: { type: "string" },
+                confidence_level: { 
+                  type: "string",
+                  enum: ["confirmed", "likely", "uncertain", "requires_investigation"]
+                },
+                investigation_suggestions: { type: "string" },
+                possible_scenarios: { type: "string" }
               },
-              required: ["id", "type", "label", "details"],
+              required: ["id", "type", "label", "details", "confidence_level"],
               additionalProperties: false,
             },
           },
@@ -133,8 +220,12 @@ export const FLOW_RESPONSES = {
                 from: { type: "string" },
                 to: { type: "string" },
                 label: { type: "string" },
+                confidence_level: { 
+                  type: "string",
+                  enum: ["confirmed", "likely", "uncertain", "requires_investigation"]
+                }
               },
-              required: ["from", "to", "label"],
+              required: ["from", "to", "label", "confidence_level"],
               additionalProperties: false,
             },
           },
@@ -161,9 +252,18 @@ export const FLOW_RESPONSES = {
                 timestamp: { type: "string" },
                 title: { type: "string" },
                 description: { type: "string" },
-                type: { type: "string" },
+                type: { 
+                  type: "string",
+                  enum: ["initial_access", "execution", "persistence", "privilege_escalation", "lateral_movement", "collection", "exfiltration", "impact", "question_mark", "investigation_step"]
+                },
+                confidence_level: { 
+                  type: "string",
+                  enum: ["confirmed", "likely", "uncertain", "requires_investigation"]
+                },
+                investigation_suggestions: { type: "string" },
+                possible_scenarios: { type: "string" }
               },
-              required: ["id", "timestamp", "title", "description", "type"],
+              required: ["id", "timestamp", "title", "description", "type", "confidence_level"],
               additionalProperties: false,
             },
           },
@@ -188,6 +288,10 @@ export const FLOW_RESPONSES = {
               properties: {
                 id: { type: "string" },
                 name: { type: "string" },
+                confidence_level: { 
+                  type: "string",
+                  enum: ["confirmed", "likely", "uncertain", "requires_investigation"]
+                },
                 techniques: {
                   type: "array",
                   items: {
@@ -197,13 +301,23 @@ export const FLOW_RESPONSES = {
                       name: { type: "string" },
                       description: { type: "string" },
                       procedure: { type: "string" },
+                      confidence_level: { 
+                        type: "string",
+                        enum: ["confirmed", "likely", "uncertain", "requires_investigation"]
+                      },
+                      evidence_quality: { 
+                        type: "string",
+                        enum: ["strong", "moderate", "weak", "speculation"]
+                      },
+                      investigation_suggestions: { type: "string" },
+                      possible_scenarios: { type: "string" }
                     },
-                    required: ["id", "name", "description", "procedure"],
+                    required: ["id", "name", "description", "procedure", "confidence_level", "evidence_quality"],
                     additionalProperties: false,
                   },
                 },
               },
-              required: ["id", "name", "techniques"],
+              required: ["id", "name", "techniques", "confidence_level"],
               additionalProperties: false,
             },
           },
@@ -212,13 +326,19 @@ export const FLOW_RESPONSES = {
         additionalProperties: false,
       },
     },
-  },
+  }
 };
 
 if (!env.OPENAI_API_KEY) {
   throw new Error("No API Key is entered, please fix.");
 }
 
+// Create HTTPS agent that disables SSL verification (ONLY for development/testing)
+const httpsAgent = new https.Agent({
+  rejectUnauthorized: false // Disable SSL certificate validation
+});
+
 export const openai = new OpenAI({
   apiKey: env.OPENAI_API_KEY,
+  httpAgent: httpsAgent, // Use the custom agent
 });

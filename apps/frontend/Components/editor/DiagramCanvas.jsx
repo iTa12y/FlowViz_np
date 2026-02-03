@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Monitor, Server, Shield, Database, Globe, User, Target, Wifi, HardDrive, Lock, Trash2 } from 'lucide-react';
+import TimelineEvent from './TimelineEvent';
 
 // Helper function to detect if text is primarily Hebrew
 const isHebrewText = (text) => {
@@ -41,7 +42,26 @@ const nodeColors = {
   text_block: { bg: 'bg-white/10', border: 'border-white/30', text: 'text-white' }
 };
 
-export default function DiagramCanvas({ diagramData, flowType, selectedNode, onNodeSelect, svgRef: externalSvgRef, zoomLevel = 100, isPromptRTL = false, addEdgeMode = false, edgeFromNode = null, onCompleteEdge = null, editingEdgeLabel = null, onEditEdgeLabel = null, timelineSortOrder = 'asc', selectedEdge = null, onEdgeSelect = null, onDeleteNode = null, onDeleteEdge = null }) {
+export default function DiagramCanvas({ 
+  diagramData, 
+  flowType, 
+  selectedNode, 
+  onNodeSelect, 
+  onNodeUpdate,
+  svgRef: externalSvgRef, 
+  zoomLevel = 100, 
+  isPromptRTL = false, 
+  addEdgeMode = false, 
+  edgeFromNode = null, 
+  onCompleteEdge = null, 
+  editingEdgeLabel = null, 
+  onEditEdgeLabel = null, 
+  timelineSortOrder = 'asc', 
+  selectedEdge = null, 
+  onEdgeSelect = null, 
+  onDeleteNode = null, 
+  onDeleteEdge = null 
+}) {
   const [positions, setPositions] = useState({});
   const [draggingNode, setDraggingNode] = useState(null);
   const [dragEdgeStart, setDragEdgeStart] = useState(null);
@@ -1187,86 +1207,76 @@ export default function DiagramCanvas({ diagramData, flowType, selectedNode, onN
     );
   }
 
-  // Timeline Visualization
+  // Timeline Visualization with Drag and Drop
   if (flowType === 'timeline' && diagramData.events) {
     // Sort events based on timelineSortOrder
-    const sortedEvents = [...diagramData.events].sort((a, b) => {
-      const timeA = new Date(a.timestamp).getTime();
-      const timeB = new Date(b.timestamp).getTime();
-      return timelineSortOrder === 'asc' ? timeA - timeB : timeB - timeA;
-    });
+    const [timelineEvents, setTimelineEvents] = useState([]);
 
-    const eventColors = {
-      initial_access: 'bg-red-400 border-red-400',
-      execution: 'bg-orange-400 border-orange-400',
-      persistence: 'bg-amber-400 border-amber-400',
-      privilege_escalation: 'bg-yellow-400 border-yellow-400',
-      lateral_movement: 'bg-cyan-400 border-cyan-400',
-      collection: 'bg-purple-400 border-purple-400',
-      exfiltration: 'bg-rose-400 border-rose-400'
+    useEffect(() => {
+      const sortedEvents = [...diagramData.events].sort((a, b) => {
+        const timeA = new Date(a.timestamp).getTime();
+        const timeB = new Date(b.timestamp).getTime();
+        return timelineSortOrder === 'asc' ? timeA - timeB : timeB - timeA;
+      });
+      setTimelineEvents(sortedEvents);
+    }, [diagramData.events, timelineSortOrder]);
+
+    const handleEventMove = (fromIndex, direction) => {
+      const newEvents = [...timelineEvents];
+      const toIndex = direction === 'down' ? fromIndex + 1 : fromIndex - 1;
+      
+      if (toIndex >= 0 && toIndex < newEvents.length) {
+        [newEvents[fromIndex], newEvents[toIndex]] = [newEvents[toIndex], newEvents[fromIndex]];
+        setTimelineEvents(newEvents);
+        
+        // Update the parent with new order
+        if (onNodeUpdate) {
+          onNodeUpdate({ events: newEvents });
+        }
+      }
+    };
+
+    const handleEventUpdate = (updatedEvent) => {
+      const newEvents = timelineEvents.map(event => 
+        event.id === updatedEvent.id ? updatedEvent : event
+      );
+      setTimelineEvents(newEvents);
+      
+      if (onNodeUpdate) {
+        onNodeUpdate(updatedEvent);
+      }
     };
 
     return (
-      <div className="p-8">
+      <div className="p-8 max-w-4xl mx-auto">
         <div className="relative">
-          {/* Timeline line */}
-          <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-gradient-to-b from-cyan-400 via-purple-400 to-rose-400" />
+          {/* Enhanced Timeline Header */}
+          <div className="mb-8 text-center">
+            <h2 className="text-2xl font-bold text-white mb-2">Attack Timeline</h2>
+            <p className="text-slate-400 text-sm">Drag events to reorder • Click timestamps to edit</p>
+          </div>
 
-          {/* Events */}
-          <div className="space-y-8">
-            {sortedEvents.map((event, index) => {
-              const colors = eventColors[event.type] || 'bg-slate-400 border-slate-400';
-              const isSelected = selectedNode?.id === event.id;
+          {/* Timeline Events */}
+          <div className="space-y-6">
+            {timelineEvents.map((event, index) => (
+              <TimelineEvent
+                key={event.id}
+                event={event}
+                index={index}
+                isSelected={selectedNode?.id === event.id}
+                onSelect={onNodeSelect}
+                onUpdate={handleEventUpdate}
+                onMove={handleEventMove}
+              />
+            ))}
+          </div>
 
-              return (
-                <motion.div
-                  key={event.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  onClick={() => onNodeSelect(event)}
-                  className={`relative pl-20 cursor-pointer group ${isSelected ? 'scale-[1.02]' : ''}`}
-                >
-                  {/* Timeline dot */}
-                  <div className={`absolute left-6 top-2 w-5 h-5 rounded-full ${colors.split(' ')[0]} ring-4 ring-[#0a0e1a]`} />
-
-                  {/* Event card */}
-                  <div 
-                    className={`p-5 rounded-xl bg-[#1a2038] border-2 transition-all ${isSelected ? 'border-cyan-400' : 'border-white/10 hover:border-white/20'}`}
-                  >
-                    <div className={`flex items-start justify-between gap-4 mb-2`}>
-                      <h4 
-                        className="text-white font-semibold"
-                        dir="auto"
-                        style={{ 
-                          unicodeBidi: 'plaintext',
-                          flex: 1,
-                          wordBreak: 'break-word'
-                        }}
-                      >
-                        <bdi>{event.title}</bdi>
-                      </h4>
-                      <span className="text-xs text-slate-500 whitespace-nowrap ml-4">
-                        {event.timestamp}
-                      </span>
-                    </div>
-                    <p 
-                      className="text-sm text-slate-400 mb-3"
-                      dir="auto"
-                      style={{ 
-                        unicodeBidi: 'plaintext',
-                        wordBreak: 'break-word'
-                      }}
-                    >
-                      <bdi>{event.description}</bdi>
-                    </p>
-                    <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${colors.split(' ')[0]} bg-opacity-20 text-white`}>
-                      {event.type?.replace(/_/g, ' ').toUpperCase()}
-                    </span>
-                  </div>
-                </motion.div>
-              );
-            })}
+          {/* Timeline completion indicator */}
+          <div className="mt-12 text-center">
+            <div className="inline-flex items-center gap-3 px-4 py-2 bg-slate-800/50 rounded-xl border border-white/10">
+              <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+              <span className="text-sm text-slate-400">Timeline Complete</span>
+            </div>
           </div>
         </div>
       </div>

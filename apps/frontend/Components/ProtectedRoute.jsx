@@ -12,18 +12,8 @@ export default function ProtectedRoute({ children }) {
 
   const checkAuth = async () => {
     try {
-      const sessionId = localStorage.getItem('session_id');
-      
-      if (!sessionId) {
-        setIsAuthenticated(false);
-        setLoading(false);
-        return;
-      }
-
-      const response = await fetch('http://localhost:5001/api/auth/verify', {
-        headers: {
-          'X-Session-ID': sessionId
-        }
+      const response = await fetch('http://localhost:3001/api/auth/verify', {
+        credentials: 'include' // Send cookies
       });
 
       const data = await response.json();
@@ -33,13 +23,11 @@ export default function ProtectedRoute({ children }) {
         localStorage.setItem('username', data.username);
       } else {
         setIsAuthenticated(false);
-        localStorage.removeItem('session_id');
         localStorage.removeItem('username');
       }
     } catch (error) {
       console.error('Auth check failed:', error);
       setIsAuthenticated(false);
-      localStorage.removeItem('session_id');
       localStorage.removeItem('username');
     } finally {
       setLoading(false);

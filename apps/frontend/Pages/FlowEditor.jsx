@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { IncidentFlowStorage } from '@/Components/services/localStorage';
+import { IncidentFlowStorage } from '@/Components/services/apiStorage';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { analyzeIncident } from '@/Components/services/openai-callback';
 import {
@@ -45,6 +45,8 @@ const NODE_TYPES = [
   { id: 'target', label: 'Target', color: 'bg-orange-400/20 border-orange-400 text-orange-400' },
   { id: 'firewall', label: 'Firewall', color: 'bg-slate-400/20 border-slate-400 text-slate-400' },
   { id: 'external', label: 'External', color: 'bg-rose-400/20 border-rose-400 text-rose-400' },
+  { id: 'question_mark', label: 'Missing Info', color: 'bg-amber-400/20 border-amber-400 text-amber-400' },
+  { id: 'investigation_step', label: 'Investigation', color: 'bg-blue-400/20 border-blue-400 text-blue-400' },
   { id: 'text_block', label: 'Text Block', color: 'bg-white/10 border-white/30 text-white' },
 ];
 
@@ -929,6 +931,7 @@ export default function FlowEditor() {
                   flowType={flow.flow_type}
                   selectedNode={selectedNode}
                   onNodeSelect={setSelectedNode}
+                  onNodeUpdate={handleNodeUpdate}
                   svgRef={svgRef}
                   zoomLevel={zoomLevel}
                   isPromptRTL={isFlowDescriptionHebrew}

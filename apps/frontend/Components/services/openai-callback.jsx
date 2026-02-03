@@ -4,15 +4,13 @@
  */
 export async function analyzeIncident({ description, flowType }) {
   const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3001";
-  const sessionId = localStorage.getItem('session_id');
   
   const res = await fetch(`${apiUrl}/api/analyze`, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
-      "X-Session-ID": sessionId
+      "Content-Type": "application/json"
     },
-    credentials: "include",
+    credentials: "include", // Send cookies automatically
     body: JSON.stringify({
       description,
       flowType
