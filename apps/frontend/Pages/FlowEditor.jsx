@@ -993,38 +993,7 @@ export default function FlowEditor() {
           </div>
           )}
 
-          {/* Legend - Hover to Expand - Hidden for mitre_attack and timeline */}
-          {flow?.flow_type !== 'mitre_attack' && flow?.flow_type !== 'timeline' && (
-          <div className="absolute top-6 right-6 rounded-xl bg-[#12182b]/90 backdrop-blur-xl border border-white/10 transition-all duration-300 group hover:p-4 p-2">
-            <h4 className="text-xs font-medium text-slate-400 uppercase tracking-wide group-hover:mb-3 transition-all">
-              Legend
-            </h4>
-            <div className="space-y-2 text-sm max-h-0 opacity-0 overflow-hidden group-hover:max-h-40 group-hover:opacity-100 group-hover:mt-3 transition-all duration-300">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-cyan-400" />
-                <span className="text-slate-300">Endpoint</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-purple-400" />
-                <span className="text-slate-300">Server</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-emerald-400" />
-                <span className="text-slate-300">Domain Controller</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-red-400" />
-                <span className="text-slate-300">Attacker</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-orange-400" />
-                <span className="text-slate-300">Target</span>
-              </div>
-            </div>
-          </div>
-          )}
-
-          {/* Keyboard Shortcuts Help - Hidden for mitre_attack and timeline */}
+          {/* Keyboard Shortcuts Help - Hidden for mitre_attack and timeline */}}
           {flow?.flow_type !== 'mitre_attack' && flow?.flow_type !== 'timeline' && (
           <div className="absolute bottom-20 right-6 rounded-xl bg-[#12182b]/90 backdrop-blur-xl border border-white/10 transition-all duration-300 group hover:p-4 p-2 max-w-xs">
             <h4 className="text-xs font-medium text-slate-400 uppercase tracking-wide group-hover:mb-3 transition-all">

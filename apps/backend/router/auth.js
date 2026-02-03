@@ -1,119 +1,135 @@
 import { Router } from "express";
-import axios from "axios";
+import crypto from "crypto";
+import RedisService from "../services/redis.js";
+import ConfluenceService from "../services/confluence_analysis.js";
 
 const router = Router();
-const API_URL = process.env.API_URL || 'http://localhost:5001';
+const redisService = new RedisService();
+const confluenceService = new ConfluenceService();
 
-// Proxy login to Flask API
+// Login endpoint - authenticate with Confluence and create session
 router.post("/login", async (req, res) => {
     try {
-        const response = await axios.post(
-            `${API_URL}/api/auth/login`,
-            req.body,
-            {
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            }
-        );
+        const { username, api_token } = req.body;
         
-        // Parse and re-set cookie for backend domain
-        const setCookie = response.headers['set-cookie'];
-        console.log('Login - Flask API Set-Cookie header:', setCookie);
-        
-        if (setCookie && setCookie.length > 0) {
-            // Extract session_id value from Set-Cookie header
-            const cookieStr = setCookie[0];
-            const sessionMatch = cookieStr.match(/session_id=([^;]+)/);
-            
-            if (sessionMatch) {
-                const sessionId = sessionMatch[1];
-                console.log('Login - Setting cookie with session_id:', sessionId);
-                
-                // Re-set cookie with proper attributes for backend
-                res.cookie('session_id', sessionId, {
-                    httpOnly: true,
-                    secure: false, // Set to true in production with HTTPS
-                    sameSite: 'lax',
-                    path: '/',
-                    maxAge: 3600000 // 1 hour in milliseconds
-                });
-            }
+        if (!username || !api_token) {
+            return res.status(400).json({ error: "username and api_token are required" });
         }
         
-        return res.status(response.status).json(response.data);
+        // Validate credentials using ConfluenceService
+        const isValid = await confluenceService.validateCredentials(username, api_token);
+        if (!isValid) {
+            console.error("Authentication failed: Invalid Confluence credentials");
+            return res.status(401).json({ error: "Invalid Confluence credentials" });
+        }
+        
+        // Get Confluence URL from service
+        const confluenceUrl = confluenceService.confluenceUrl;
+        
+        // Create session with credentials (stored only in session, not permanently)
+        const sessionId = crypto.randomBytes(24).toString('base64url');
+        console.log(`Login - Creating session with ID: ${sessionId} for user: ${username}`);
+        
+        const sessionCreated = await redisService.setSession(
+            sessionId, username, 3600, // 1 hour session
+            api_token, confluenceUrl
+        );
+        console.log(`Login - Session creation result: ${sessionCreated}`);
+        
+        // Set HTTP-only cookie
+        const isProduction = process.env.NODE_ENV === 'production';
+        
+        res.cookie('session_id', sessionId, {
+            httpOnly: true,
+            secure: isProduction,
+            sameSite: 'lax',
+            maxAge: 3600000 // 1 hour in milliseconds
+        });
+        
+        return res.status(200).json({
+            success: true,
+            username,
+            message: "Authentication successful"
+        });
+        
     } catch (error) {
-        console.error('Login proxy error:', error.message);
-        const status = error.response?.status || 500;
-        const data = error.response?.data || { error: 'Login failed' };
-        return res.status(status).json(data);
+        console.error('Login error:', error);
+        return res.status(500).json({ error: error.message });
     }
 });
 
-// Proxy verify to Flask API
+// Verify session endpoint
 router.get("/verify", async (req, res) => {
     try {
         console.log('=== VERIFY REQUEST DEBUG ===');
         console.log('All cookies:', req.cookies);
-        console.log('Raw cookie header:', req.headers.cookie);
         
         const sessionId = req.cookies?.session_id;
         
         if (!sessionId) {
-            console.error('No session_id cookie found in request');
-            return res.status(401).json({ error: 'No session ID in cookie' });
+            console.log("Verify - No session ID found");
+            return res.status(401).json({ valid: false, error: "No session ID provided" });
         }
         
-        const cookieToSend = `session_id=${sessionId}`;
-        console.log('Sending Cookie header to API:', cookieToSend);
+        console.log(`Verify - Looking up session_id in Redis: ${sessionId}`);
+        const username = await redisService.getSession(sessionId);
+        console.log(`Verify - Redis returned username: ${username}`);
         
-        const response = await axios.get(
-            `${API_URL}/api/auth/verify`,
-            {
-                headers: {
-                    'Cookie': cookieToSend
-                }
-            }
-        );
+        if (username) {
+            return res.status(200).json({ valid: true, username });
+        } else {
+            return res.status(401).json({ valid: false, error: "Invalid or expired session" });
+        }
         
-        console.log('API response status:', response.status);
-        return res.status(response.status).json(response.data);
     } catch (error) {
-        console.error('Verify proxy error:', error.response?.data || error.message);
-        const status = error.response?.status || 500;
-        const data = error.response?.data || { error: 'Verification failed' };
-        return res.status(status).json(data);
+        console.error('Verify session error:', error);
+        return res.status(500).json({ error: error.message });
     }
 });
 
-// Proxy logout to Flask API
+// Logout endpoint
 router.post("/logout", async (req, res) => {
     try {
         const sessionId = req.cookies?.session_id;
         
-        const response = await axios.post(
-            `${API_URL}/api/auth/logout`,
-            {},
-            {
-                headers: sessionId ? {
-                    'Cookie': `session_id=${sessionId}`
-                } : {}
-            }
-        );
+        if (sessionId) {
+            await redisService.deleteSession(sessionId);
+        }
         
-        // Clear cookie on backend side
         res.clearCookie('session_id', {
             httpOnly: true,
-            secure: false,
+            secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax'
         });
         
-        return res.status(response.status).json(response.data);
+        return res.status(200).json({ success: true, message: "Logged out successfully" });
+        
     } catch (error) {
-        console.error('Logout proxy error:', error.message);
-        const status = error.response?.status || 500;
-        const data = error.response?.data || { error: 'Logout failed' };
-        return res.status(status).json(data);
+        console.error('Logout error:', error);
+        return res.status(500).json({ error: error.message });
+    }
+});
+
+// Debug endpoint to check authentication status and session data
+router.get("/status", async (req, res) => {
+    try {
+        const sessionId = req.cookies?.session_id;
+        if (!sessionId) {
+            return res.status(401).json({ error: "No session ID found" });
+        }
+        
+        const username = await redisService.getSessionUsername(sessionId);
+        const credentials = await redisService.getSessionCredentials(sessionId);
+        
+        return res.status(200).json({
+            session_id: sessionId,
+            username,
+            has_credentials: credentials !== null,
+            credentials_keys: credentials ? Object.keys(credentials) : null
+        });
+    } catch (error) {
+        console.error('Status error:', error);
+        return res.status(500).json({ error: error.message });
     }
 });
 

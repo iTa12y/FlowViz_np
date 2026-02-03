@@ -1,11 +1,14 @@
 import { Router } from 'express';
-import { getConfluencePage } from '../controllers/confluence.js';
+import { getConfluencePage, analyzeConfluencePage } from '../controllers/confluence.js';
 import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
 
-// Fetch Confluence page (temporarily without auth for testing)
+// Fetch Confluence page content
 router.get('/page', getConfluencePage);
+
+// Analyze Confluence page content with speculation detection
+router.post('/analyze', analyzeConfluencePage);
 
 // Test route without auth for debugging
 router.get('/test', (req, res) => {

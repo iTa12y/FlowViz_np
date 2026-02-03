@@ -193,31 +193,63 @@ export default function NodeDetails({ node, flowType, onClose, isEditMode, onNod
                 </div>
               </div>
 
-              {/* Details */}
-              {(node.details || isEditMode) && (
+              {/* Details - Always show in panel */}
+              <div>
+                <h5 className="text-sm font-medium text-slate-400 mb-2">Description</h5>
+                {isEditMode && inlineEdit === 'details' ? (
+                  <textarea
+                    autoFocus
+                    value={inlineValue}
+                    onChange={(e) => setInlineValue(e.target.value)}
+                    onBlur={() => {
+                      setEditedNode({ ...editedNode, details: inlineValue });
+                      onNodeUpdate({ ...editedNode, details: inlineValue });
+                      setInlineEdit(false);
+                    }}
+                    className="w-full text-sm text-white bg-cyan-500/10 border border-cyan-500/50 rounded p-2 focus:outline-none focus:border-cyan-400 min-h-[60px]"
+                  />
+                ) : (
+                  <p 
+                    onClick={() => isEditMode && (() => { setInlineEdit('details'); setInlineValue(node.details || ''); })()}
+                    className={`text-sm text-slate-300 leading-relaxed whitespace-pre-wrap ${isEditMode ? 'cursor-text hover:bg-white/5 px-2 py-1 rounded transition-colors' : ''}`}
+                    style={{ unicodeBidi: 'plaintext' }}
+                  >
+                    {node.details || (isEditMode ? 'Click to add description...' : 'No description available')}
+                  </p>
+                )}
+              </div>
+
+              {/* Possible Scenarios - for question mark nodes */}
+              {(node.type === 'question_mark' || node.confidence_level === 'requires_investigation') && (
                 <div>
-                  <h5 className="text-sm font-medium text-slate-400 mb-2">Description</h5>
-                  {isEditMode && inlineEdit === 'details' ? (
-                    <textarea
-                      autoFocus
-                      value={inlineValue}
-                      onChange={(e) => setInlineValue(e.target.value)}
-                      onBlur={() => {
-                        setEditedNode({ ...editedNode, details: inlineValue });
-                        onNodeUpdate({ ...editedNode, details: inlineValue });
-                        setInlineEdit(false);
-                      }}
-                      className="w-full text-sm text-white bg-cyan-500/10 border border-cyan-500/50 rounded p-2 focus:outline-none focus:border-cyan-400 min-h-[60px]"
-                    />
-                  ) : (
-                    <p 
-                      onClick={() => isEditMode && (() => { setInlineEdit('details'); setInlineValue(node.details || ''); })()}
-                      className={`text-sm text-slate-300 leading-relaxed ${isEditMode ? 'cursor-text hover:bg-white/5 px-2 py-1 rounded transition-colors' : ''}`}
-                      style={{ unicodeBidi: 'plaintext' }}
-                    >
-                      {node.details || (isEditMode ? 'Click to add description...' : 'No description')}
+                  <h5 className="text-sm font-medium text-amber-400 mb-2 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4" />
+                    Possible Attack Vectors
+                  </h5>
+                  <div className="p-4 rounded-lg bg-amber-400/10 border border-amber-400/20">
+                    <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap break-words overflow-wrap-anywhere">
+                      {node.possible_scenarios && node.possible_scenarios.trim() 
+                        ? node.possible_scenarios 
+                        : 'Regenerate the flow to see possible attack scenarios for this missing information.'}
                     </p>
-                  )}
+                  </div>
+                </div>
+              )}
+
+              {/* Investigation Suggestions - for question mark nodes */}
+              {(node.type === 'question_mark' || node.confidence_level === 'requires_investigation') && (
+                <div>
+                  <h5 className="text-sm font-medium text-blue-400 mb-2 flex items-center gap-2">
+                    <Info className="w-4 h-4" />
+                    Investigation Steps
+                  </h5>
+                  <div className="p-4 rounded-lg bg-blue-400/10 border border-blue-400/20 overflow-x-auto">
+                    <pre className="text-[11px] text-slate-300 leading-relaxed whitespace-pre-wrap break-words font-mono overflow-wrap-anywhere" style={{ wordBreak: 'break-word' }}>
+                      {node.investigation_suggestions && node.investigation_suggestions.trim()
+                        ? node.investigation_suggestions 
+                        : 'Regenerate the flow to see specific investigation steps with log paths, Event IDs, and forensic artifacts to check.'}
+                    </pre>
+                  </div>
                 </div>
               )}
 

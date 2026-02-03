@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Monitor, Server, Shield, Database, Globe, User, Target, Wifi, HardDrive, Lock, Trash2 } from 'lucide-react';
+import { Monitor, Server, Shield, Database, Globe, User, Target, Wifi, HardDrive, Lock, Trash2, HelpCircle } from 'lucide-react';
 import TimelineEvent from './TimelineEvent';
+import QuestionMarkNode from './QuestionMarkNode';
 
 // Helper function to detect if text is primarily Hebrew
 const isHebrewText = (text) => {
@@ -24,7 +25,9 @@ const nodeIcons = {
   firewall: Lock,
   external: Globe,
   network: Wifi,
-  storage: HardDrive
+  storage: HardDrive,
+  question_mark: HelpCircle,
+  investigation_step: Monitor
 };
 
 const nodeColors = {
@@ -37,6 +40,8 @@ const nodeColors = {
   target: { bg: 'bg-orange-400/20', border: 'border-orange-400', text: 'text-orange-400' },
   firewall: { bg: 'bg-slate-400/20', border: 'border-slate-400', text: 'text-slate-400' },
   external: { bg: 'bg-rose-400/20', border: 'border-rose-400', text: 'text-rose-400' },
+  question_mark: { bg: 'bg-amber-400/20', border: 'border-amber-400', text: 'text-amber-400' },
+  investigation_step: { bg: 'bg-blue-400/20', border: 'border-blue-400', text: 'text-blue-400' },
   network: { bg: 'bg-blue-400/20', border: 'border-blue-400', text: 'text-blue-400' },
   storage: { bg: 'bg-indigo-400/20', border: 'border-indigo-400', text: 'text-indigo-400' },
   text_block: { bg: 'bg-white/10', border: 'border-white/30', text: 'text-white' }
@@ -145,10 +150,10 @@ export default function DiagramCanvas({
             groups[lv].push(nodeId);
           });
 
-          const xStart = 300;
-          const yStart = 250;
-          const xSpacing = 450;
-          const ySpacing = 220;
+          const xStart = 400;
+          const yStart = 300;
+          const xSpacing = 600;
+          const ySpacing = 300;
 
           const levels = Object.keys(groups).map(k => parseInt(k, 10)).sort((a,b) => a-b);
           levels.forEach(lv => {
@@ -160,7 +165,7 @@ export default function DiagramCanvas({
             // Calculate vertical distribution with centering
             const numNodes = colNodes.length;
             const totalHeight = (numNodes - 1) * ySpacing;
-            const centerY = yStart + 300; // Adjusted center point
+            const centerY = yStart + 800; // Increased center point for better distribution
             const startY = centerY - totalHeight / 2;
             
             colNodes.forEach((nodeId, i) => {
@@ -168,6 +173,76 @@ export default function DiagramCanvas({
               newPositions[nodeId] = { x: colX, y: colY };
             });
           });
+
+          // Apply collision detection based on bounding boxes
+          const iterations = 25; // Number of separation iterations (increased)
+          const DEFAULT_RADIUS = 48; // Account for outer glow/stroke
+
+          const getNodeById = (id) => nodes.find(n => n.id === id);
+          const getBounds = (id) => {
+            const node = getNodeById(id);
+            const pos = newPositions[id];
+            if (!node || !pos) return { left: 0, right: 0, top: 0, bottom: 0 };
+            if (node.type === 'text_block') {
+              const size = nodeSizes[id] || { width: 200, height: 70 };
+              const halfW = size.width / 2;
+              const halfH = size.height / 2;
+              const pad = 16; // margin around text block
+              return {
+                left: pos.x - halfW - pad,
+                right: pos.x + halfW + pad,
+                top: pos.y - halfH - pad,
+                bottom: pos.y + halfH + pad
+              };
+            }
+            // Circle bounds for regular nodes
+            return {
+              left: pos.x - DEFAULT_RADIUS,
+              right: pos.x + DEFAULT_RADIUS,
+              top: pos.y - DEFAULT_RADIUS,
+              bottom: pos.y + DEFAULT_RADIUS
+            };
+          };
+
+          for (let iter = 0; iter < iterations; iter++) {
+            let changed = false;
+            const nodeIds = Object.keys(newPositions);
+            for (let i = 0; i < nodeIds.length; i++) {
+              for (let j = i + 1; j < nodeIds.length; j++) {
+                const id1 = nodeIds[i];
+                const id2 = nodeIds[j];
+                const b1 = getBounds(id1);
+                const b2 = getBounds(id2);
+
+                const overlapX = Math.max(0, Math.min(b1.right, b2.right) - Math.max(b1.left, b2.left));
+                const overlapY = Math.max(0, Math.min(b1.bottom, b2.bottom) - Math.max(b1.top, b2.top));
+
+                // If overlapping, push apart along the axis of greater overlap
+                if (overlapX > 0 && overlapY > 0) {
+                  const pos1 = newPositions[id1];
+                  const pos2 = newPositions[id2];
+                  const dx = pos2.x - pos1.x;
+                  const dy = pos2.y - pos1.y;
+
+                  // Resolve along axis of larger overlap to prevent jitter
+                  if (overlapX > overlapY) {
+                    const push = overlapX / 2 + 20; // add larger gap
+                    const direction = dx >= 0 ? 1 : -1;
+                    newPositions[id1] = { x: pos1.x - direction * push, y: pos1.y };
+                    newPositions[id2] = { x: pos2.x + direction * push, y: pos2.y };
+                    changed = true;
+                  } else {
+                    const push = overlapY / 2 + 20;
+                    const direction = dy >= 0 ? 1 : -1;
+                    newPositions[id1] = { x: pos1.x, y: pos1.y - direction * push };
+                    newPositions[id2] = { x: pos2.x, y: pos2.y + direction * push };
+                    changed = true;
+                  }
+                }
+              }
+            }
+            if (!changed) break; // early exit when there are no overlaps
+          }
         } else {
           // Add new nodes near first existing node
           const existingPos = Object.values(newPositions)[0];
@@ -190,7 +265,7 @@ export default function DiagramCanvas({
     const vals = Object.values(positions || {});
     if (!vals.length) {
       // Default to large size even with no nodes
-      setCanvasSize({ width: 4000, height: 3000 });
+      setCanvasSize({ width: 5000, height: 4000 });
       return;
     }
     let minX = Infinity;
@@ -207,8 +282,8 @@ export default function DiagramCanvas({
     });
     
     // Calculate size with generous padding
-    const width = Math.max(4000, Math.ceil(maxX - minX + 500));
-    const height = Math.max(3000, Math.ceil(maxY - minY + 500));
+    const width = Math.max(5000, Math.ceil(maxX - minX + 800));
+    const height = Math.max(4000, Math.ceil(maxY - minY + 800));
     
     setCanvasSize({ width, height });
   }, [positions]);
@@ -607,6 +682,114 @@ export default function DiagramCanvas({
           const Icon = nodeIcons[node.type] || Monitor;
           const isSelected = selectedNode?.id === node.id;
           const isTextBlock = node.type === 'text_block';
+          const isQuestionMark = node.type === 'question_mark' || node.confidence_level === 'requires_investigation';
+
+          // Question mark node rendering using QuestionMarkNode component
+          if (isQuestionMark) {
+            return (
+              <motion.g
+                key={node.id}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                style={{ cursor: draggingNode === node.id ? 'grabbing' : 'grab' }}
+                onMouseDown={(e) => handleMouseDown(node.id, e)}
+                onClick={() => {
+                  if (addEdgeMode && edgeFromNode && edgeFromNode !== node.id && onCompleteEdge) {
+                    onCompleteEdge(node.id, edgeFromNode);
+                  } else if (!addEdgeMode && !dragEdgeStart) {
+                    onNodeSelect(node);
+                  }
+                }}
+              >
+                {/* Large invisible background circle for size */}
+                <circle
+                  cx={pos.x}
+                  cy={pos.y}
+                  r="100"
+                  fill="rgba(251, 191, 36, 0.05)"
+                  stroke="none"
+                />
+
+                {/* Selection ring */}
+                {isSelected && (
+                  <circle
+                    cx={pos.x}
+                    cy={pos.y}
+                    r="105"
+                    fill="none"
+                    stroke="#fbbf24"
+                    strokeWidth="3"
+                    strokeDasharray="8 4"
+                    style={{ pointerEvents: 'none' }}
+                  >
+                    <animate
+                      attributeName="r"
+                      values="105;110;105"
+                      dur="2s"
+                      repeatCount="indefinite"
+                    />
+                  </circle>
+                )}
+
+                <foreignObject
+                  x={pos.x - 90}
+                  y={pos.y - 40}
+                  width="180"
+                  height="80"
+                  style={{ overflow: 'visible', pointerEvents: 'none' }}
+                >
+                  <QuestionMarkNode
+                    node={node}
+                    isSelected={isSelected}
+                    onSelect={() => {}}
+                    onEdit={onNodeUpdate}
+                  />
+                </foreignObject>
+
+                {/* Edge connector dots */}
+                <circle
+                  cx={pos.x + 140}
+                  cy={pos.y}
+                  r="5"
+                  fill="#fbbf24"
+                  opacity={hoveredConnectorNode === `${node.id}-right` || dragEdgeStart === node.id ? '0.8' : '0'}
+                  style={{ cursor: 'crosshair', transition: 'opacity 0.2s', pointerEvents: 'auto' }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDragEdgeStart(node.id);
+                    setDragEdgeEnd(pos);
+                  }}
+                  onMouseEnter={() => setHoveredConnectorNode(`${node.id}-right`)}
+                  onMouseLeave={() => {
+                    if (dragEdgeStart !== node.id) {
+                      setHoveredConnectorNode(null);
+                    }
+                  }}
+                />
+                <circle
+                  cx={pos.x - 140}
+                  cy={pos.y}
+                  r="5"
+                  fill="#fbbf24"
+                  opacity={hoveredConnectorNode === `${node.id}-left` || dragEdgeStart === node.id ? '0.8' : '0'}
+                  style={{ cursor: 'crosshair', transition: 'opacity 0.2s', pointerEvents: 'auto' }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDragEdgeStart(node.id);
+                    setDragEdgeEnd(pos);
+                  }}
+                  onMouseEnter={() => setHoveredConnectorNode(`${node.id}-left`)}
+                  onMouseLeave={() => {
+                    if (dragEdgeStart !== node.id) {
+                      setHoveredConnectorNode(null);
+                    }
+                  }}
+                />
+              </motion.g>
+            );
+          }
 
           // Text block rendering
           if (isTextBlock) {
@@ -619,14 +802,40 @@ export default function DiagramCanvas({
                 key={node.id}
                 initial={{ opacity: 0, scale: 0.5 }}
                 animate={{ opacity: 1, scale: 1 }}
-                style={{ cursor: resizingNode === node.id ? 'nwse-resize' : draggingNode === node.id ? 'grabbing' : 'grab' }}
+                style={{ cursor: resizingNode === node.id ? 'nwse-resize' : draggingNode === node.id ? 'grabbing' : 'grab', pointerEvents: 'all' }}
                 onMouseDown={(e) => {
-                  // Don't start dragging if clicking on resize handle
-                  const target = e.target;
-                  if (target.classList?.contains('resize-handle') || target.closest('.resize-handle')) {
+                  // Check if clicking on resize handle
+                  if (e.target.classList?.contains('resize-handle') || e.target.closest('.resize-handle')) {
                     return;
                   }
                   handleMouseDown(node.id, e);
+                }}
+                onMouseDownCapture={(e) => {
+                  // Capture phase: start dragging unless on a resize or connector control
+                  const target = e.target;
+                  if (target.classList?.contains('resize-handle') || target.closest?.('.resize-handle')) {
+                    return;
+                  }
+                  if (target.classList?.contains('edge-connector')) {
+                    return;
+                  }
+                  // Only start drag if not already resizing
+                  if (!resizingNode) {
+                    handleMouseDown(node.id, e);
+                  }
+                }}
+                onPointerDown={(e) => {
+                  // Support touch/pen pointer events
+                  const target = e.target;
+                  if (target.classList?.contains('resize-handle') || target.closest?.('.resize-handle')) {
+                    return;
+                  }
+                  if (target.classList?.contains('edge-connector')) {
+                    return;
+                  }
+                  if (!resizingNode) {
+                    handleMouseDown(node.id, e);
+                  }
                 }}
                 onClick={() => {
                   if (addEdgeMode && edgeFromNode && edgeFromNode !== node.id && onCompleteEdge) {
@@ -636,33 +845,45 @@ export default function DiagramCanvas({
                   }
                 }}
               >
-                {/* Selection ring for text block */}
-                {isSelected && (
-                  <rect
-                    x={pos.x - halfW - 10}
-                    y={pos.y - halfH - 10}
-                    width={size.width + 20}
-                    height={size.height + 20}
-                    fill="none"
-                    stroke="#00d4ff"
-                    strokeWidth="2"
-                    rx="8"
-                    className="animate-pulse"
-                  />
-                )}
-                
-                {/* Text block background */}
+                {/* Background rect with better visual design */}
                 <rect
                   x={pos.x - halfW}
                   y={pos.y - halfH}
                   width={size.width}
                   height={size.height}
-                  fill="rgba(255,255,255,0.05)"
-                  stroke="rgba(255,255,255,0.3)"
+                  fill="rgba(100,149,237,0.08)"
+                  stroke="rgba(100,149,237,0.4)"
                   strokeWidth="2"
-                  rx="6"
-                  style={{ backdropFilter: 'blur(10px)' }}
+                  rx="10"
+                  style={{ 
+                    filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.3))',
+                    backdropFilter: 'blur(8px)',
+                    cursor: draggingNode === node.id ? 'grabbing' : 'grab',
+                    pointerEvents: 'auto'
+                  }}
                 />
+                
+                {/* Selection ring for text block */}
+                {isSelected && (
+                  <rect
+                    x={pos.x - halfW - 8}
+                    y={pos.y - halfH - 8}
+                    width={size.width + 16}
+                    height={size.height + 16}
+                    fill="none"
+                    stroke="#60a5fa"
+                    strokeWidth="3"
+                    rx="12"
+                    style={{ pointerEvents: 'none' }}
+                  >
+                    <animate
+                      attributeName="stroke-opacity"
+                      values="0.5;1;0.5"
+                      dur="1.5s"
+                      repeatCount="indefinite"
+                    />
+                  </rect>
+                )}
                 
                 {/* Edge connector dots */}
                 <circle
@@ -671,6 +892,7 @@ export default function DiagramCanvas({
                   r="5"
                   fill="#00d4ff"
                   opacity={hoveredConnectorNode === `${node.id}-right` || dragEdgeStart === node.id ? '0.8' : '0'}
+                  className="edge-connector"
                   style={{ cursor: 'crosshair', transition: 'opacity 0.2s', pointerEvents: 'auto' }}
                   onMouseDown={(e) => {
                     e.preventDefault();
@@ -687,6 +909,7 @@ export default function DiagramCanvas({
                   r="5"
                   fill="#00d4ff"
                   opacity={hoveredConnectorNode === `${node.id}-left` || dragEdgeStart === node.id ? '0.8' : '0'}
+                  className="edge-connector"
                   style={{ cursor: 'crosshair', transition: 'opacity 0.2s', pointerEvents: 'auto' }}
                   onMouseDown={(e) => {
                     e.preventDefault();
@@ -703,6 +926,7 @@ export default function DiagramCanvas({
                   r="5"
                   fill="#00d4ff"
                   opacity={hoveredConnectorNode === `${node.id}-bottom` || dragEdgeStart === node.id ? '0.8' : '0'}
+                  className="edge-connector"
                   style={{ cursor: 'crosshair', transition: 'opacity 0.2s', pointerEvents: 'auto' }}
                   onMouseDown={(e) => {
                     e.preventDefault();
@@ -719,6 +943,7 @@ export default function DiagramCanvas({
                   r="5"
                   fill="#00d4ff"
                   opacity={hoveredConnectorNode === `${node.id}-top` || dragEdgeStart === node.id ? '0.8' : '0'}
+                  className="edge-connector"
                   style={{ cursor: 'crosshair', transition: 'opacity 0.2s', pointerEvents: 'auto' }}
                   onMouseDown={(e) => {
                     e.preventDefault();
@@ -999,6 +1224,25 @@ export default function DiagramCanvas({
                     </foreignObject>
                   </g>
                 )}
+                
+                {/* Dragging capture overlay - MUST be last to capture all events */}
+                {!isSelected && (
+                  <rect
+                    x={pos.x - halfW}
+                    y={pos.y - halfH}
+                    width={size.width}
+                    height={size.height}
+                    fill="transparent"
+                    style={{ 
+                      cursor: draggingNode === node.id ? 'grabbing' : 'grab',
+                      pointerEvents: 'all'
+                    }}
+                    onMouseDown={(e) => {
+                      // Delegate to the shared handler to start dragging
+                      handleMouseDown(node.id, e);
+                    }}
+                  />
+                )}
               </motion.g>
             );
           }
@@ -1025,13 +1269,36 @@ export default function DiagramCanvas({
                 <circle
                   cx={pos.x}
                   cy={pos.y}
-                  r="45"
+                  r="48"
                   fill="none"
-                  stroke="#00d4ff"
-                  strokeWidth="2"
-                  className="animate-pulse"
-                />
+                  stroke="#60a5fa"
+                  strokeWidth="3"
+                  style={{ pointerEvents: 'none' }}
+                >
+                  <animate
+                    attributeName="r"
+                    values="48;52;48"
+                    dur="2s"
+                    repeatCount="indefinite"
+                  />
+                </circle>
               )}
+              
+              {/* Outer glow */}
+              <circle
+                cx={pos.x}
+                cy={pos.y}
+                r="38"
+                fill="none"
+                stroke={node.type === 'attacker' ? '#ef4444' : 
+                        node.type === 'target' ? '#f59e0b' :
+                        node.type === 'server' ? '#8b5cf6' :
+                        node.type === 'domain_controller' ? '#10b981' :
+                        '#06b6d4'}
+                strokeWidth="8"
+                opacity="0.2"
+                style={{ pointerEvents: 'none' }}
+              />
               
               {/* Node background */}
               <circle
@@ -1041,18 +1308,19 @@ export default function DiagramCanvas({
                 className={colors.bg}
                 fill="currentColor"
                 stroke="currentColor"
-                strokeWidth="2"
+                strokeWidth="2.5"
                 style={{ 
-                  fill: node.type === 'attacker' ? 'rgba(248,113,113,0.2)' : 
-                        node.type === 'target' ? 'rgba(251,146,60,0.2)' :
-                        node.type === 'server' ? 'rgba(167,139,250,0.2)' :
-                        node.type === 'domain_controller' ? 'rgba(52,211,153,0.2)' :
-                        'rgba(34,211,238,0.2)',
-                  stroke: node.type === 'attacker' ? '#f87171' : 
-                          node.type === 'target' ? '#fb923c' :
-                          node.type === 'server' ? '#a78bfa' :
-                          node.type === 'domain_controller' ? '#34d399' :
-                          '#22d3ee'
+                  fill: node.type === 'attacker' ? 'rgba(239,68,68,0.25)' : 
+                        node.type === 'target' ? 'rgba(245,158,11,0.25)' :
+                        node.type === 'server' ? 'rgba(139,92,246,0.25)' :
+                        node.type === 'domain_controller' ? 'rgba(16,185,129,0.25)' :
+                        'rgba(6,182,212,0.25)',
+                  stroke: node.type === 'attacker' ? '#ef4444' : 
+                          node.type === 'target' ? '#f59e0b' :
+                          node.type === 'server' ? '#8b5cf6' :
+                          node.type === 'domain_controller' ? '#10b981' :
+                          '#06b6d4',
+                  filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.4))'
                 }}
               />
 
@@ -1060,10 +1328,10 @@ export default function DiagramCanvas({
               <circle
                 cx={pos.x + 40}
                 cy={pos.y}
-                r="5"
-                fill="#00d4ff"
-                opacity={hoveredConnectorNode === `${node.id}-right` || dragEdgeStart === node.id ? '0.8' : '0'}
-                style={{ cursor: 'crosshair', transition: 'opacity 0.2s', pointerEvents: 'auto' }}
+                r="6"
+                fill="#60a5fa"
+                opacity={hoveredConnectorNode === `${node.id}-right` || dragEdgeStart === node.id ? '1' : '0'}
+                style={{ cursor: 'crosshair', transition: 'all 0.2s', pointerEvents: 'auto', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}
                 onMouseDown={(e) => {
                   e.preventDefault();
                   e.stopPropagation();

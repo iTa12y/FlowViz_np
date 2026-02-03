@@ -106,10 +106,125 @@ For missing or uncertain elements, create question_mark components that describe
 - Questions that need answers
 - Technical checks to perform
 
+**CRITICAL: For EVERY question_mark node, you MUST populate both:**
+1. **possible_scenarios** - Brief 2-3 sentence explanation referencing EXACT details from incident
+2. **investigation_suggestions** - ONLY incident-specific artifacts (NO generic suggestions!)
+
+**STEP 1: EXTRACT from the incident description (use exact wording):**
+- System/server names: \"_______\" (e.g., \"Timestamping System\", \"Core Banking Systems\")
+- User accounts: \"_______\" (e.g., \"systems administrator\", \"insider\")
+- Time periods: \"_______\" (e.g., \"over several months\", \"3-month period\")
+- Attack methods: \"_______\" (e.g., \"timestamp manipulation\", \"exploited vulnerability\")
+- Affected data: \"_______\" (e.g., \"transaction timestamps\", \"false transactions\")
+- Technologies: \"_______\" (e.g., \"timestamping system\", \"financial database\")
+
+**STEP 2: Use ONLY extracted details in suggestions. Example transformation:**
+
+Incident says: \"An insider exploited the Timestamping System over several months to manipulate transaction records in the Core Banking Database.\"
+
+Extract:
+- System: \"Timestamping System\"
+- User: \"insider\"
+- Period: \"several months\"
+- Target: \"Core Banking Database\"
+- Action: \"manipulate transaction records\"
+
+Generate:
+\"🔍 TIMESTAMPING SYSTEM:
+• Check Event Logs on Timestamping System:
+  - Security.evtx: Event ID 4624 for 'insider' account logins during the several months period
+  - System.evtx: Event ID 1 for time changes
+• Registry on Timestamping System: HKLM\\\\SYSTEM\\\\CurrentControlSet\\\\Services\\\\W32Time
+
+💾 CORE BANKING DATABASE:
+• Query transaction records: SELECT * FROM transactions WHERE modified_by='insider' AND timestamp_altered=1
+• Database audit logs: Filter for 'insider' account during several months period
+• Compare transaction timestamps with system log timestamps
+
+📁 SYSTEM FILES:
+• Timestamping System: Check C:\\\\[app path]\\\\logs for modifications
+• Core Banking Database server: Review SQL audit logs\"
+
+**RULES:**
+❌ FORBIDDEN (will fail review):
+- \"Check Windows Event Logs\" (which system?)
+- \"Review system logs\" (which logs? which system?)
+- \"Investigate network traffic\" (between which systems?)
+- \"Look for suspicious activity\" (what activity? where?)
+- Any suggestion without a specific system/user/path from the incident
+
+✅ REQUIRED (must follow this format):
+- \"Check Security.evtx on [EXACT SYSTEM NAME from incident] for Event ID 4624\"
+- \"Query [EXACT DATABASE NAME]: SELECT * FROM [TABLE] WHERE user='[EXACT USER from incident]'\"
+- \"Review [SPECIFIC LOG PATH] for [EXACT USER/SYSTEM from incident] during [EXACT TIME from incident]\"
+- \"Check C:\\\\[EXACT PATH from incident or reasonable inference]\\\\logs\"
+
+**If incident mentions \"Timestamping System\" - reference it EXACTLY**
+**If incident mentions \"insider\" - use \"insider\" not \"attacker\"**
+**If incident says \"several months\" - use \"several months\" not \"extended period\"**
+**If no specific detail exists - infer from context but keep it specific to THIS incident**
+
+INVESTIGATION SUGGESTIONS FORMAT:
+Generate a checklist with artifacts SPECIFIC to this incident:
+
+🔍 HOST FORENSICS (adapt based on systems mentioned in incident):
+• Windows Event Logs:
+  - Security.evtx: Event ID 4624 (Logon), 4625 (Failed), 4648 (Explicit Creds), 4672 (Admin rights)
+  - System.evtx: Event ID 7045 (Service), 1056 (RDP), 1 (Time change)
+• Sysmon (if available):
+  - Event ID 1 (Process Creation) → Look for: [specific suspicious process from context]
+  - Event ID 3 (Network) → Check connections to: [specific IPs/ports from incident]
+  - Event ID 7 (DLL Load) → Suspicious DLLs in [mentioned system/path]
+• Linux/Unix:
+  - /var/log/auth.log, /var/log/secure → Search for: [specific usernames]
+  - ~/.bash_history → Check for: [commands relevant to attack vector]
+
+📁 FILE SYSTEM (specify paths from incident context):
+• Persistence locations:
+  - Registry: HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run
+  - Scheduled Tasks: Check for [task names related to incident]
+  - Startup folders: Look for [suspicious executables]
+• Application-specific:
+  - [Mention specific app paths from incident, e.g., C:\\BankingApp\\logs]
+  - [Temp files related to mentioned activities]
+
+🌐 NETWORK (focus on relevant protocols):
+• Commands:
+  - netstat -ano | findstr :[port from incident]
+  - Check firewall for [specific IP ranges]
+• Traffic Analysis:
+  - PCAP filters for [mentioned protocols/systems]
+  - DNS queries for [related domains]
+
+💾 APPLICATION LOGS (incident-specific):
+• [Specific application mentioned]: [Exact log path]
+• Database: [Specific tables/queries mentioned in incident]
+• Transactions: [Specific time ranges or IDs from incident]
+
+EXAMPLE for banking timestamp incident:
+"🔍 HOST FORENSICS:
+• Windows Event Logs on Timestamping System:
+  - Security.evtx: Event ID 4624 (check login from Insider account at manipulation time)
+  - System.evtx: Event ID 1 (Time-Service changes), W32tm logs
+• System.evtx: Event ID 7045 for service modifications
+• Registry: HKLM\\SYSTEM\\CurrentControlSet\\Services\\W32Time for config changes
+
+📁 FILE SYSTEM:
+• C:\\Windows\\System32\\winevt\\Logs → Timestamp of modification
+• Database transaction logs: Compare timestamps in logs vs actual records
+• Check \$MFT timeline for file access patterns
+
+💾 APPLICATION:
+• Banking database: Query transactions table WHERE modified_time != transaction_time
+• Audit logs: SELECT * FROM audit_trail WHERE user='[insider]' AND action='timestamp_modify'
+• NTP server logs: Check for time sync anomalies"
+
 Return JSON with:
-- nodes: array of {id, type, label, details, confidence_level}
+- nodes: array of {id, type, label, details, confidence_level, possible_scenarios, investigation_suggestions}
   - type options: endpoint, workstation, server, domain_controller, database, attacker, target, firewall, external, network, storage, question_mark, investigation_step
   - confidence_level: "confirmed", "likely", "uncertain", "requires_investigation"
+  - **For question_mark nodes**: populate possible_scenarios and investigation_suggestions with detailed info
+  - **For all other nodes**: set possible_scenarios="" and investigation_suggestions=""
 - edges: array of {from, to, label, confidence_level}
 
 If the incident is in Hebrew, extract technical information accurately while filtering speculation.`,
@@ -205,10 +320,10 @@ export const RESPONSE_FORMATS = {
                   type: "string",
                   enum: ["confirmed", "likely", "uncertain", "requires_investigation"]
                 },
-                investigation_suggestions: { type: "string" },
-                possible_scenarios: { type: "string" }
+                possible_scenarios: { type: "string", description: "Only populate for question_mark nodes. Empty string for others." },
+                investigation_suggestions: { type: "string", description: "Only populate for question_mark nodes. Empty string for others." }
               },
-              required: ["id", "type", "label", "details", "confidence_level"],
+              required: ["id", "type", "label", "details", "confidence_level", "possible_scenarios", "investigation_suggestions"],
               additionalProperties: false,
             },
           },
@@ -259,9 +374,7 @@ export const RESPONSE_FORMATS = {
                 confidence_level: { 
                   type: "string",
                   enum: ["confirmed", "likely", "uncertain", "requires_investigation"]
-                },
-                investigation_suggestions: { type: "string" },
-                possible_scenarios: { type: "string" }
+                }
               },
               required: ["id", "timestamp", "title", "description", "type", "confidence_level"],
               additionalProperties: false,
@@ -308,9 +421,7 @@ export const RESPONSE_FORMATS = {
                       evidence_quality: { 
                         type: "string",
                         enum: ["strong", "moderate", "weak", "speculation"]
-                      },
-                      investigation_suggestions: { type: "string" },
-                      possible_scenarios: { type: "string" }
+                      }
                     },
                     required: ["id", "name", "description", "procedure", "confidence_level", "evidence_quality"],
                     additionalProperties: false,

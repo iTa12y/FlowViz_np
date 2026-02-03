@@ -1,0 +1,84 @@
+# ========================================
+# Dependencies (installed inside container)
+# ========================================
+**/node_modules/
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/pnpm-debug.log*
+
+# ========================================
+# Environment & Secrets
+# ========================================
+**/.env
+**/.env.*
+!**/.env.example
+
+# ========================================
+# Git / VCS
+# ========================================
+.git/
+.gitignore
+.gitattributes
+
+# ========================================
+# Docker files not needed inside image
+# ========================================
+**/Dockerfile
+**/.dockerignore
+docker-compose*.yml
+
+# ========================================
+# Logs & Runtime Artifacts
+# ========================================
+**/logs/
+**/*.log
+**/pids/
+**/*.pid
+**/*.seed
+**/*.pid.lock
+
+# ========================================
+# IDE / Editor Files
+# ========================================
+.vscode/
+.idea/
+**/*.sublime-workspace
+**/*.sublime-project
+**/*.swp
+**/*.swo
+**/*.sw?
+
+# ========================================
+# Build outputs
+# ========================================
+**/dist/
+**/build/
+**/.next/
+**/.nuxt/
+**/out/
+
+# ========================================
+# Test & Coverage
+# ========================================
+**/coverage/
+**/.nyc_output/
+**/.jest/
+**/__tests__/
+**/__mocks__/
+
+# ========================================
+# OS Files
+# ========================================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ========================================
+# Documentation
+# ========================================
+README.md
+**/*.md
+!apps/*/README.md
+LICENSE
+docs/

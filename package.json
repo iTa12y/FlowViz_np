@@ -5,10 +5,9 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:api\"",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "npm --prefix apps/backend run dev",
-    "dev:frontend": "npm --prefix apps/frontend run dev",
-    "dev:api": "python apps/api/app.py"
+    "dev:frontend": "npm --prefix apps/frontend run dev"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",

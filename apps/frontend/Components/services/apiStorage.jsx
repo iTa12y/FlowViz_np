@@ -11,9 +11,7 @@ function generateId() {
 // API helper with credentials included
 async function apiRequest(endpoint, options = {}) {
   const fullUrl = `${API_URL}${endpoint}`;
-  console.log('apiStorage - Making request to:', fullUrl);
-  console.log('apiStorage - Method:', options.method || 'GET');
-  console.log('apiStorage - Body:', options.body);
+  // Silenced verbose request logs
   
   const response = await fetch(fullUrl, {
     ...options,
@@ -24,8 +22,7 @@ async function apiRequest(endpoint, options = {}) {
     },
   });
 
-  console.log('apiStorage - Response status:', response.status);
-  console.log('apiStorage - Response ok:', response.ok);
+  // Silenced verbose response logs
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Request failed' }));
@@ -38,6 +35,10 @@ async function apiRequest(endpoint, options = {}) {
 
 // IncidentFlow storage operations (server-side)
 export const IncidentFlowStorage = {
+  // Backwards-compatible alias
+  async getAll() {
+    return this.list();
+  },
   // List all flows for authenticated user
   async list(sortField = '-created_date', limit = null) {
     const data = await apiRequest('/api/flows');

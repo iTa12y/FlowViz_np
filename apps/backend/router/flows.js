@@ -1,64 +1,57 @@
 import { Router } from "express";
-import axios from "axios";
+import RedisService from "../services/redis.js";
 import { requireAuth } from "../middleware/auth.js";
 
 const router = Router();
-const API_URL = process.env.API_URL || 'http://localhost:5001';
-
-console.log('Flows router loaded successfully');
-
-// Add middleware to log all requests to flows router
-router.use((req, res, next) => {
-    console.log(`Flows router: ${req.method} ${req.path} - Request received`);
-    next();
-});
+const redisService = new RedisService();
 
 // Get all flows for authenticated user
 router.get("/", requireAuth, async (req, res) => {
     try {
         const sessionId = req.cookies?.session_id;
         
-        const response = await axios.get(
-            `${API_URL}/api/flows`,
-            {
-                headers: {
-                    'Cookie': `session_id=${sessionId}`
-                }
-            }
-        );
+        if (!sessionId) {
+            return res.status(401).json({ error: 'Authentication required' });
+        }
         
-        return res.status(response.status).json(response.data);
+        const username = await redisService.getSessionUsername(sessionId);
+        if (!username) {
+            return res.status(401).json({ error: 'Invalid or expired session' });
+        }
+        
+        const flows = await redisService.getUserFlows(username);
+        return res.status(200).json({ flows });
     } catch (error) {
-        console.error('Get flows proxy error:', error.response?.data || error.message);
-        const status = error.response?.status || 500;
-        const data = error.response?.data || { error: 'Failed to get flows' };
-        return res.status(status).json(data);
+        console.error('Get flows error:', error.message);
+        return res.status(500).json({ error: error.message });
     }
 });
 
 // Save or update a flow
 router.post("/", requireAuth, async (req, res) => {
-    console.log('Flows router: POST / hit');
     try {
         const sessionId = req.cookies?.session_id;
         
-        const response = await axios.post(
-            `${API_URL}/api/flows`,
-            req.body,
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Cookie': `session_id=${sessionId}`
-                }
-            }
-        );
+        if (!sessionId) {
+            return res.status(401).json({ error: 'Authentication required' });
+        }
         
-        return res.status(response.status).json(response.data);
+        const username = await redisService.getSessionUsername(sessionId);
+        if (!username) {
+            return res.status(401).json({ error: 'Invalid or expired session' });
+        }
+        
+        const flowData = req.body;
+        if (!flowData) {
+            return res.status(400).json({ error: 'Flow data is required' });
+        }
+        
+        const result = await redisService.saveUserFlow(username, flowData);
+        return res.status(201).json({ success: result, flow: flowData });
     } catch (error) {
-        console.error('Save flow proxy error:', error.response?.data || error.message);
-        const status = error.response?.status || 500;
-        const data = error.response?.data || { error: 'Failed to save flow' };
-        return res.status(status).json(data);
+        console.error('Save flow error:', error.message);
+        console.error('Stack trace:', error.stack);
+        return res.status(500).json({ error: error.message });
     }
 });
 
@@ -68,21 +61,24 @@ router.delete("/:flowId", requireAuth, async (req, res) => {
         const sessionId = req.cookies?.session_id;
         const { flowId } = req.params;
         
-        const response = await axios.delete(
-            `${API_URL}/api/flows/${flowId}`,
-            {
-                headers: {
-                    'Cookie': `session_id=${sessionId}`
-                }
-            }
-        );
+        if (!sessionId) {
+            return res.status(401).json({ error: 'Authentication required' });
+        }
         
-        return res.status(response.status).json(response.data);
+        const username = await redisService.getSessionUsername(sessionId);
+        if (!username) {
+            return res.status(401).json({ error: 'Invalid or expired session' });
+        }
+        
+        if (!flowId) {
+            return res.status(400).json({ error: 'Flow ID is required' });
+        }
+        
+        const result = await redisService.deleteUserFlow(username, flowId);
+        return res.status(200).json({ success: result });
     } catch (error) {
-        console.error('Delete flow proxy error:', error.response?.data || error.message);
-        const status = error.response?.status || 500;
-        const data = error.response?.data || { error: 'Failed to delete flow' };
-        return res.status(status).json(data);
+        console.error('Delete flow error:', error.message);
+        return res.status(500).json({ error: error.message });
     }
 });
 

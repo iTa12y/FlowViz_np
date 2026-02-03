@@ -10,10 +10,17 @@ export default function Home() {
   // Fetch recent flows
   const { data: flows = [], isLoading } = useQuery({
     queryKey: ['flows'],
-    queryFn: IncidentFlowStorage.getAll
+    queryFn: () => IncidentFlowStorage.list()
   });
 
+  // Recent flows (display) and last-7-days stats
   const recentFlows = flows.slice(0, 3);
+  const now = Date.now();
+  const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+  const flowsThisWeek = flows.filter(f => {
+    const created = Date.parse(f.created_date);
+    return !Number.isNaN(created) && (now - created) <= sevenDaysMs;
+  });
   const mostRecentFlow = recentFlows[0];
 
   const features = [
@@ -22,21 +29,21 @@ export default function Home() {
       title: 'Network Mapping',
       description: 'Visualize attack paths across your infrastructure with interactive network diagrams.',
       color: 'cyan',
-      stats: { total: flows.filter(f => f.type === 'network_map').length, recent: 'Last 7 days' }
+      stats: { total: flows.filter(f => f.flow_type === 'network_map').length, recent: 'Last 7 days' }
     },
     {
       icon: Clock,
       title: 'Timeline Analysis',
       description: 'Reconstruct incident sequences with precise temporal visualization.',
       color: 'purple',
-      stats: { total: flows.filter(f => f.type === 'timeline').length, recent: 'Last 7 days' }
+      stats: { total: flows.filter(f => f.flow_type === 'timeline').length, recent: 'Last 7 days' }
     },
     {
       icon: Target,
       title: 'MITRE ATT&CK',
       description: 'Map incidents to the ATT&CK framework for standardized threat intelligence.',
       color: 'green',
-      stats: { total: flows.filter(f => f.type === 'mitre_attack').length, recent: 'Last 7 days' }
+      stats: { total: flows.filter(f => f.flow_type === 'mitre_attack').length, recent: 'Last 7 days' }
     }
   ];
 
@@ -92,7 +99,7 @@ export default function Home() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-blue-400" />
-                  <span className="text-sm text-slate-300">This Week: <span className="text-white font-semibold">{recentFlows.length}</span></span>
+                  <span className="text-sm text-slate-300">This Week: <span className="text-white font-semibold">{flowsThisWeek.length}</span></span>
                 </div>
               </div>
               <Link

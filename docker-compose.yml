@@ -1,37 +1,53 @@
 
 services:
-  api:
-    build: 
-      context: ./apps/api
-      dockerfile: Dockerfile
-    container_name: flowviz-api
-    env_file:
-      - ./apps/api/.env
+  redis:
+    image: redis:7-alpine
+    container_name: flowviz-redis
     ports:
-      - "5001:5001"
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
     restart: unless-stopped
+    command: redis-server --appendonly yes
+    networks:
+      - flowviz-network
 
   backend:
     build: 
       context: .
-      dockerfile: ./src/backend/Dockerfile
+      dockerfile: ./apps/backend/Dockerfile
     container_name: flowviz-backend
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     env_file:
-      - ./src/backend/.env
+      - ./apps/backend/.env
     ports:
       - "3001:3001"
-    expose:
-      - "3001"
+    depends_on:
+      - redis
     restart: unless-stopped
+    networks:
+      - flowviz-network
 
   frontend:
     build: 
       context: .
-      dockerfile: ./src/frontend/Dockerfile
+      dockerfile: ./apps/frontend/Dockerfile
     container_name: flowviz-frontend
     ports:
       - "5173:80"
     depends_on:
       - backend
-      - api
     restart: unless-stopped
+    networks:
+      - flowviz-network
+
+volumes:
+  redis-data:
+
+networks:
+  flowviz-network:
+    driver: bridge
