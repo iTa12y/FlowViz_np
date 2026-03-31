@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { withApiBase } from '@/utils';
 import { AlertCircle, Key, ExternalLink, CheckCircle, Loader2 } from 'lucide-react';
 import { Input } from '@/Components/ui/input';
 import { Button } from '@/Components/ui/button';
@@ -25,7 +26,9 @@ export default function ConfluenceSetup() {
 
   const checkConfluenceAuth = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/confluence/auth');
+      const response = await fetch(withApiBase('/api/confluence/auth'), {
+        credentials: 'include',
+      });
       if (response.ok) {
         const data = await response.json();
         setIsConfigured(data.configured);
@@ -45,8 +48,9 @@ export default function ConfluenceSetup() {
     setSuccess(null);
 
     try {
-      const response = await fetch('http://localhost:3001/api/confluence/auth', {
+      const response = await fetch(withApiBase('/api/confluence/auth'), {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },

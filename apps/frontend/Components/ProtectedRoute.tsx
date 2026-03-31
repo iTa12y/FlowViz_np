@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
+import { withApiBase } from '@/utils';
 import { Loader2 } from 'lucide-react';
 
 export default function ProtectedRoute({ children }) {
@@ -12,7 +13,7 @@ export default function ProtectedRoute({ children }) {
 
   const checkAuth = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/auth/verify', {
+      const response = await fetch(withApiBase('/api/auth/verify'), {
         credentials: 'include' // Send cookies
       });
 

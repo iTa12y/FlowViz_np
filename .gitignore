@@ -51,5 +51,9 @@ temp/
 .eslintcache
 .npm
 
+# Local archive artifacts
+*.tar
+*.tar.gz
+
 # TypeScript
 *.tsbuildinfo

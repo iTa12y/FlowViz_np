@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import createDebug from 'debug';
 import express from "express";
+import env from "./services/env.js";
 
 const debug = createDebug('flowviz:server');
 
@@ -34,13 +35,15 @@ app.use((req: any, res: any, next: any) => {
 });
 
 app.use(applyCors())
+// Note: explicit app.options() is not needed — applyCors() uses preflightContinue: false,
+// so the cors middleware already intercepts and terminates OPTIONS requests via app.use().
 app.use(cookieParser());
-app.use(express.json({ limit: "50kb" }));
+app.use(express.json({ limit: env.REQUEST_BODY_SIZE_LIMIT }));
 app.set("trust proxy", 1);
 
 app.use("/api", rateLimit({
-  windowMs: 60 * 1000,
-  max: 50,
+  windowMs: env.RATE_LIMIT_WINDOW_MS,
+  max: env.RATE_LIMIT_MAX_REQUESTS,
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req: any) => req.method === 'OPTIONS' // Skip rate limiting for CORS preflight
@@ -55,9 +58,11 @@ app.get("/health", (req: any, res: any) => {
   res.json({ status: "ok", service: "flowviz-backend" });
 });
 
-const PORT = process.env.PORT || 3001;
+const PORT = env.PORT;
 app.listen(PORT, () => {
   debug('Backend server listening on port %d', PORT);
+  debug('Resolved CORS origins: %o', env.CORS_ORIGINS);
+  debug('Resolved frontend URL: %s', env.FRONTEND_URL);
   debug('HTTP debugging: Set DEBUG=flowviz:http for request/response logs');
   debug('All debugging: Set DEBUG=flowviz:* for comprehensive logs');
 });

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { createPageUrl } from '@/utils';
+import { createPageUrl, withApiBase } from '@/utils';
 import { IncidentFlowStorage } from '@/Components/services/apiStorage';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { analyzeIncident } from '@/Components/services/openai-callback';
@@ -36,6 +36,7 @@ import { Textarea } from '@/Components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import DiagramCanvas from '@/Components/editor/DiagramCanvas';
 import NodeDetails from '@/Components/editor/NodeDetails';
+
 
 const NODE_TYPES = [
   { id: 'endpoint', label: 'Endpoint', color: 'bg-cyan-400/20 border-cyan-400 text-cyan-400' },
@@ -123,7 +124,7 @@ export default function FlowEditor() {
       
       if (isMultiFlow) {
         // Regenerate all three flow types
-        const response = await fetch('http://localhost:3001/api/incident/analyze-all', {
+        const response = await fetch(withApiBase('/api/incident/analyze-all'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',

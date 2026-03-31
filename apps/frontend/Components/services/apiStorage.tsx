@@ -1,7 +1,7 @@
 // API-based storage service for incident flows
 // Stores flows in Redis via backend API (per-user, server-side storage)
 
-const API_URL = import.meta.env.VITE_AUTH_API_URL || 'http://localhost:3001';
+import { withApiBase } from '@/utils';
 
 // Generate unique ID
 function generateId() {
@@ -9,8 +9,8 @@ function generateId() {
 }
 
 // API helper with credentials included
-async function apiRequest(endpoint, options = {}) {
-  const fullUrl = `${API_URL}${endpoint}`;
+async function apiRequest(endpoint, options: { headers?: Record<string, string> } & RequestInit = {}) {
+  const fullUrl = withApiBase(endpoint);
   
   const response = await fetch(fullUrl, {
     ...options,

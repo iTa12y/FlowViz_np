@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { createPageUrl } from '@/utils';
+import { createPageUrl, withApiBase } from '@/utils';
 import { Shield, Home, History, PlusCircle, Menu, X, User, LogOut, Settings, Bell, Search, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -19,7 +19,7 @@ export default function Layout({ children, currentPageName }) {
 
   const handleLogout = async () => {
     try {
-      await fetch('http://localhost:3001/api/auth/logout', {
+      await fetch(withApiBase('/api/auth/logout'), {
         method: 'POST',
         credentials: 'include'
       });
@@ -53,8 +53,12 @@ export default function Layout({ children, currentPageName }) {
             {/* Clean Logo Section */}
             <Link to={createPageUrl('')} className="flex items-center gap-3 group">
               <div className="relative">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg group-hover:shadow-cyan-500/25 transition-all duration-300">
-                  <Shield className="w-5 h-5 text-white" />
+                <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center shadow-lg group-hover:shadow-cyan-500/25 transition-all duration-300 p-1">
+                  <img 
+                    src="/ChatGPT%20Image%20Feb%2010,%202026,%2002_02_17%20PM.svg" 
+                    alt="FlowViz Logo" 
+                    className="w-full h-full object-contain"
+                  />
                 </div>
               </div>
               <div className="flex flex-col">

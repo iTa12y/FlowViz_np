@@ -4,6 +4,7 @@ A React-based incident flow visualization application with AI-powered diagram ge
 
 ## Table of Contents
 
+- [Quick Start (Local Development)](#quick-start-local-development)
 - [Overview](#overview)
 - [Current Architecture](#current-architecture)
 - [Production Integration Guide](#production-integration-guide)
@@ -12,8 +13,109 @@ A React-based incident flow visualization application with AI-powered diagram ge
   - [3. Security Hardening](#3-security-hardening)
   - [4. Custom OpenAI Endpoint Integration](#4-custom-openai-endpoint-integration)
 - [Deployment](#deployment)
+- [OpenShift Deployment (Frontend + Backend)](./OPENSHIFT_DEPLOYMENT.md)
+- [OpenShift Resources Guide](./OPENSHIFT_RESOURCES_GUIDE.md)
 - [Migration from localStorage](#migration-from-localstorage)
 - [Troubleshooting](#troubleshooting)
+
+---
+
+## Quick Start (Local Development)
+
+### Prerequisites
+
+1. **Node.js 18+** and **pnpm**
+2. **Redis** (required for session management)
+3. **Confluence Account** with API token
+4. **OpenAI API Key**
+
+### Install Redis
+
+**Windows:**
+```bash
+# Download and install from:
+https://github.com/tporadowski/redis/releases
+# Or use Chocolatey:
+choco install redis-64
+```
+
+**macOS:**
+```bash
+brew install redis
+brew services start redis
+```
+
+**Linux (Ubuntu/Debian):**
+```bash
+sudo apt-get install redis-server
+sudo systemctl start redis-server
+```
+
+### Start Redis
+
+```bash
+redis-server
+```
+
+Verify Redis is running:
+```bash
+redis-cli ping
+# Should return: PONG
+```
+
+### Setup Application
+
+1. **Install dependencies:**
+   ```bash
+   pnpm install
+   ```
+
+2. **Configure environment variables:**
+   
+   Copy the example environment file:
+   ```bash
+   cp .env.example apps/backend/.env
+   ```
+   
+   Then edit `apps/backend/.env` with your values:
+   ```env
+   # OpenAI Configuration (Required)
+   VITE_OPENAI_API_KEY=sk-your-openai-api-key
+   
+   # Confluence Configuration (Required)
+   CONFLUENCE_URL=https://your-domain.atlassian.net
+   CONFLUENCE_SPACE=YOUR_SPACE
+   
+   # Redis (defaults to localhost:6379 for local dev)
+   REDIS_HOST=localhost
+   REDIS_PORT=6379
+  REDIS_USERNAME=
+   
+   # Optional
+   NODE_ENV=development
+   ```
+
+3. **Start the application:**
+   ```bash
+   pnpm dev
+   ```
+   This starts both frontend (http://localhost:5173) and backend (http://localhost:3001)
+
+4. **Login** with your Confluence credentials:
+   - Username: your-email@company.com
+   - API Token: [Generate here](https://id.atlassian.com/manage-profile/security/api-tokens)
+
+### Troubleshooting Login Issues
+
+If you see "Redis Not Connected" on the login page:
+- Make sure Redis is running: `redis-cli ping`
+- Check Redis connection: `redis-cli` then `PING`
+- Restart Redis: `redis-server`
+
+If login fails with backend errors:
+- Verify backend is running on port 3001
+- Check console for detailed error messages
+- Ensure Confluence credentials are correct
 
 ---
 
@@ -1677,18 +1779,27 @@ router.post("/migrate/import", authenticateToken, async (req, res) => {
 - [ ] Set all environment variables in production
 - [ ] Generate and set secure JWT_SECRET and SESSION_SECRET
 - [ ] Configure SSO provider with production callback URLs
-- [ ] Set up PostgreSQL database
+- [ ] Set up PostgreSQL database (or use Redis for development)
 - [ ] Configure SSL certificates for HTTPS
 - [ ] Test database migrations
+- [ ] Create and configure `apps/backend/.env` from `.env.example`
 
 #### 2. Deploy with Docker Compose
 
 ```bash
+# Configure environment
+cp .env.example apps/backend/.env
+# Edit apps/backend/.env with your production values
+
 # Build and start services
-docker-compose up -d
+docker-compose up --build -d
 
 # Check logs
 docker-compose logs -f backend
+
+# Verify services are running
+docker-compose ps
+```
 
 # Check database
 docker-compose exec postgres psql -U flowviz_user -d flowviz -c "SELECT COUNT(*) FROM users;"

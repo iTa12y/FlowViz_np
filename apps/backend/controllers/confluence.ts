@@ -1,5 +1,6 @@
 import RedisService from '../services/redis.js';
 import ConfluenceService from '../services/confluence_analysis.js';
+import env from '../services/env.js';
 
 const redisService = new RedisService();
 const confluenceService = new ConfluenceService();
@@ -7,7 +8,7 @@ const confluenceService = new ConfluenceService();
 export async function getConfluencePage(req: any, res: any) {
     try {
         // Verify session and get user credentials
-        const sessionId = req.cookies?.session_id;
+        const sessionId = req.cookies?.[env.SESSION_COOKIE_NAME];
         if (!sessionId) {
             return res.status(401).json({ error: "Authentication required" });
         }
@@ -49,7 +50,7 @@ export async function getConfluencePage(req: any, res: any) {
 
 export async function analyzeConfluencePage(req: any, res: any) {
     try {
-        const sessionId = req.cookies?.session_id;
+        const sessionId = req.cookies?.[env.SESSION_COOKIE_NAME];
         if (!sessionId) {
             return res.status(401).json({ error: "Authentication required" });
         }

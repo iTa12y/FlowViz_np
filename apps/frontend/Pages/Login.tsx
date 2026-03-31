@@ -1,10 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import dotenv from 'dotenv'
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/Components/ui/input';
 import { Button } from '@/Components/ui/button';
 import { Label } from '@/Components/ui/label';
-import { AlertCircle, Loader2, Shield, Eye, EyeOff, Lock, User, ArrowRight } from 'lucide-react';
+import { withApiBase, getFrontendEnvVar } from '@/utils';
+import { AlertCircle, Loader2, Shield, Eye, EyeOff, Lock, User, ArrowRight, AlertTriangle, CheckCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
+
+const ALLOW_INSECURE_HOSTS = getFrontendEnvVar('VITE_ALLOW_INSECURE_HOSTS', 'localhost,127.0.0.1')
+  .split(',')
+  .map((host) => host.trim())
+  .filter(Boolean);
 
 export default function Login() {
   const navigate = useNavigate();
@@ -15,6 +22,41 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showToken, setShowToken] = useState(false);
+  const [systemStatus, setSystemStatus] = useState({ checking: true, redis_connected: false, backend_connected: false });
+
+  // Check system status on mount
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const response = await fetch(withApiBase('/api/auth/status'), {
+          credentials: 'include',
+          
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setSystemStatus({
+            checking: false,
+            redis_connected: data.redis_connected,
+            backend_connected: true
+          });
+        } else {
+          setSystemStatus({
+            checking: false,
+            redis_connected: false,
+            backend_connected: true
+          });
+        }
+      } catch (err) {
+        setSystemStatus({
+          checking: false,
+          redis_connected: false,
+          backend_connected: false
+        });
+      }
+    };
+    
+    checkStatus();
+  }, []);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -26,16 +68,14 @@ export default function Login() {
     setError(null);
 
     // Security check: Warn if not using HTTPS in production
-    if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+    if (window.location.protocol !== 'https:' && !ALLOW_INSECURE_HOSTS.includes(window.location.hostname)) {
       setError('SECURITY WARNING: Credentials must be sent over HTTPS');
       setLoading(false);
       return;
     }
 
-    const apiUrl = import.meta.env.VITE_AUTH_API_URL || 'http://localhost:3001';
-
     try {
-      const response = await fetch(`${apiUrl}/api/auth/login`, {
+      const response = await fetch(withApiBase('/api/auth/login'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -59,10 +99,20 @@ export default function Login() {
         
         navigate('/');
       } else {
-        setError(data.error || 'Authentication failed');
+        // Check if it's a Redis connection error
+        if (response.status === 503) {
+          setError(
+            `${data.error || 'Service unavailable'}\n\n` +
+            `💡 Solution: Make sure Redis is running.\n` +
+            `Windows: Install Redis via https://github.com/tporadowski/redis/releases\n` +
+            `Mac/Linux: Run 'redis-server' in terminal`
+          );
+        } else {
+          setError(data.error || 'Authentication failed');
+        }
       }
     } catch (err) {
-      setError('Failed to connect to authentication service');
+      setError('Failed to connect to authentication service. Check VITE_AUTH_API_URL or VITE_API_URL configuration.');
       console.error('Login error:', err);
     } finally {
       setLoading(false);
@@ -106,6 +156,56 @@ export default function Login() {
               </p>
             </div>
           </div>
+
+          {/* System Status Banner */}
+          {!systemStatus.checking && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`rounded-2xl border p-4 ${
+                !systemStatus.backend_connected
+                  ? 'bg-red-500/10 border-red-500/30'
+                  : !systemStatus.redis_connected
+                  ? 'bg-orange-500/10 border-orange-500/30'
+                  : 'bg-emerald-500/10 border-emerald-500/30'
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                {!systemStatus.backend_connected ? (
+                  <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                ) : !systemStatus.redis_connected ? (
+                  <AlertTriangle className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" />
+                ) : (
+                  <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                )}
+                <div className="flex-1">
+                  {!systemStatus.backend_connected ? (
+                    <>
+                      <p className="text-red-400 font-semibold text-sm mb-1">Backend Server Offline</p>
+                      <p className="text-red-300 text-xs">
+                        Cannot connect to backend server. Check VITE_AUTH_API_URL or VITE_API_URL configuration.
+                      </p>
+                    </>
+                  ) : !systemStatus.redis_connected ? (
+                    <>
+                      <p className="text-orange-400 font-semibold text-sm mb-1">Redis Not Connected</p>
+                      <p className="text-orange-300 text-xs leading-relaxed">
+                        Session storage unavailable. Install and start Redis:<br/>
+                        <span className="font-mono bg-black/30 px-2 py-1 rounded mt-1 inline-block">redis-server</span>
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-emerald-400 font-semibold text-sm mb-1">System Ready</p>
+                      <p className="text-emerald-300 text-xs">
+                        All services are online. You can log in securely.
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
 
           {/* Enhanced Login Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -175,10 +275,10 @@ export default function Login() {
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="mt-6 flex items-center gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/20"
+                  className="mt-6 flex items-start gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/20"
                 >
-                  <AlertCircle className="w-5 h-5 flex-shrink-0 text-red-400" />
-                  <span className="text-sm text-red-400">{error}</span>
+                  <AlertCircle className="w-5 h-5 flex-shrink-0 text-red-400 mt-0.5" />
+                  <span className="text-sm text-red-400 whitespace-pre-line leading-relaxed">{error}</span>
                 </motion.div>
               )}
 
@@ -208,7 +308,7 @@ export default function Login() {
                 <Shield className="w-4 h-4" />
                 <span>End-to-end encrypted • Session expires in 1 hour</span>
               </div>
-              {window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && (
+              {window.location.protocol !== 'https:' && !ALLOW_INSECURE_HOSTS.includes(window.location.hostname) && (
                 <div className="flex items-center justify-center gap-2 text-amber-400 text-sm">
                   <AlertCircle className="w-4 h-4" />
                   <span>WARNING: Use HTTPS in production</span>

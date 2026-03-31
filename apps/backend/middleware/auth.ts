@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import RedisService from '../services/redis.js';
+import env from '../services/env.js';
 
 // Extend Express Request type
 declare module 'express-serve-static-core' {
@@ -14,7 +15,7 @@ const redisService = new RedisService();
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
     try {
-        const sessionId = req.cookies?.session_id;
+    const sessionId = req.cookies?.[env.SESSION_COOKIE_NAME];
         
         if (!sessionId) {
             return res.status(401).json({ error: 'Authentication required' });

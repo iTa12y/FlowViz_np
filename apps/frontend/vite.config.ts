@@ -11,4 +11,7 @@ export default defineConfig({
     },
     extensions: [".js", ".jsx", ".ts", ".tsx", ".json"]
   },
+  optimizeDeps: {
+    exclude: ['pdfjs-dist']
+  }
 })

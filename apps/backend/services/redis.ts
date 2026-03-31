@@ -1,23 +1,24 @@
 import { createClient, RedisClientType } from 'redis';
 import 'dotenv/config';
+import env from './env.js';
 
 class RedisService {
   private client: RedisClientType;
   private _isConnecting: boolean;
 
   constructor() {
-    const redisHost = process.env.REDIS_HOST || 'localhost';
-    const redisPort = parseInt(process.env.REDIS_PORT || '6379');
-    const redisPassword = process.env.REDIS_PASSWORD || null;
-
-    const redisUrl = redisPassword
-      ? `redis://:${redisPassword}@${redisHost}:${redisPort}`
-      : `redis://${redisHost}:${redisPort}`;
+    const redisHost = env.REDIS_HOST;
+    const redisPort = typeof env.REDIS_PORT === 'string' ? parseInt(env.REDIS_PORT) : env.REDIS_PORT;
+    const redisUsername = env.REDIS_USERNAME;
+    const redisPassword = env.REDIS_PASSWORD;
 
     this.client = createClient({
-      url: redisUrl,
+      username: redisUsername || undefined,
+      password: redisPassword || undefined,
       socket: {
-        connectTimeout: 30000
+        host: redisHost,
+        port: redisPort,
+        connectTimeout: env.REDIS_CONNECT_TIMEOUT
       }
     });
 

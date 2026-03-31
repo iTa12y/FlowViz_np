@@ -9,7 +9,8 @@
     "dev:backend": "pnpm --filter backend run dev",
     "dev:frontend": "pnpm --filter frontend run dev",
     "build": "pnpm --filter backend run build",
-    "type-check": "pnpm --filter backend run build --noEmit"
+    "type-check": "pnpm --filter backend run build --noEmit",
+    "postinstall": "node -e \"try { require('fs').mkdirSync('apps/frontend/public', { recursive: true }); require('fs').copyFileSync('node_modules/pdfjs-dist/build/pdf.worker.min.mjs', 'apps/frontend/public/pdf.worker.min.mjs'); } catch(e) { console.log('Skipping PDF worker copy:', e.message); }\""
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
@@ -34,7 +35,9 @@
     "framer-motion": "^12.23.26",
     "helmet": "^8.1.0",
     "lucide-react": "^0.562.0",
+    "mammoth": "^1.11.0",
     "openai": "^6.15.0",
+    "pdfjs-dist": "^5.4.624",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.11.0",

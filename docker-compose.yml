@@ -1,16 +1,17 @@
 
 services:
-  redis:
-    image: redis:7-alpine
-    container_name: flowviz-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis-data:/data
-    restart: unless-stopped
-    command: redis-server --appendonly yes
-    networks:
-      - flowviz-network
+  # Redis container disabled - using cloud instance
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: flowviz-redis
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis-data:/data
+  #   restart: unless-stopped
+  #   command: redis-server --appendonly yes
+  #   networks:
+  #     - flowviz-network
 
   backend:
     build: 
@@ -20,14 +21,23 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3001
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-    env_file:
-      - ./apps/backend/.env
+      # Cloud Redis configuration - add your cloud Redis details to .env
+      - REDIS_HOST=${REDIS_HOST:-your-cloud-redis.com}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_USERNAME=${REDIS_USERNAME:-}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - CONFLUENCE_URL=${CONFLUENCE_URL:-}
+      - CONFLUENCE_SPACE=${CONFLUENCE_SPACE:-}
+      - SESSION_TTL_SECONDS=${SESSION_TTL_SECONDS:-3600}
+      - SESSION_COOKIE_NAME=${SESSION_COOKIE_NAME:-session_id}
+      - SESSION_COOKIE_SAME_SITE=${SESSION_COOKIE_SAME_SITE:-lax}
+      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-false}
+      - REDIS_START_COMMAND_HINT=${REDIS_START_COMMAND_HINT:-redis-server}
     ports:
       - "3001:3001"
-    depends_on:
-      - redis
+    # depends_on:
+    #   - redis  # Disabled when using cloud Redis
     restart: unless-stopped
     networks:
       - flowviz-network
@@ -37,16 +47,23 @@ services:
       context: .
       dockerfile: ./apps/frontend/Dockerfile
     container_name: flowviz-frontend
+    environment:
+      - VITE_API_URL=${VITE_API_URL:-/api}
+      - VITE_AUTH_API_URL=${VITE_AUTH_API_URL:-/api}
+      - VITE_CONFLUENCE_SPACE=${VITE_CONFLUENCE_SPACE:-}
+      - VITE_FILE_CONTENT_MIN_LENGTH=${VITE_FILE_CONTENT_MIN_LENGTH:-20}
+      - VITE_FILE_CONTENT_MAX_LENGTH=${VITE_FILE_CONTENT_MAX_LENGTH:-5000}
+      - VITE_ALLOW_INSECURE_HOSTS=${VITE_ALLOW_INSECURE_HOSTS:-localhost,127.0.0.1}
     ports:
-      - "5173:80"
+      - "5173:8080"
     depends_on:
       - backend
     restart: unless-stopped
     networks:
       - flowviz-network
 
-volumes:
-  redis-data:
+# volumes:
+  # redis-data:  # Not needed with cloud Redis
 
 networks:
   flowviz-network:
